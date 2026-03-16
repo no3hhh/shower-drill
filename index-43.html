@@ -1,0 +1,1820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#08080d">
+<title>ShowerDrill</title>
+<link rel="manifest" href="manifest.json">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Unbounded:wght@300;400;700;900&display=swap');
+
+:root {
+  --bg: #0a1628;
+  --bg2: #0f1d33;
+  --bg3: #162540;
+  --accent: #4dd9ff;
+  --accent15: #4dd9ff26;
+  --accent30: #4dd9ff4d;
+  --green: #00ff88;
+  --green15: #00ff8826;
+  --red: #ff4466;
+  --red15: #ff446626;
+  --orange: #ffaa00;
+  --orange15: #ffaa0026;
+  --purple: #a78bfa;
+  --text: #e8f4ff;
+  --dim: #456080;
+  --mid: #7da0c0;
+  --r: 14px;
+  --fd: 'Unbounded', sans-serif;
+  --fm: 'Space Mono', monospace;
+  --water1: #1a8fff33;
+  --water2: #00c8ff22;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body {
+  height:100%; width:100%; overflow:hidden;
+  background:var(--bg); color:var(--text);
+  font-family:var(--fm);
+  user-select:none; -webkit-user-select:none;
+}
+
+/* ====== WATER DROPLETS ANIMATION ====== */
+.water-drops {
+  position:fixed; inset:0; pointer-events:none; z-index:0; overflow:hidden;
+}
+.drop-particle {
+  position:absolute; width:2px; border-radius:50%;
+  background:linear-gradient(180deg, transparent, var(--accent30), transparent);
+  animation:dropFall linear infinite;
+  opacity:0.4;
+}
+@keyframes dropFall {
+  0% { transform:translateY(-20px); opacity:0; }
+  10% { opacity:0.5; }
+  90% { opacity:0.3; }
+  100% { transform:translateY(110vh); opacity:0; }
+}
+
+/* ====== STEAM EFFECT ====== */
+.steam-wrap {
+  position:fixed; bottom:0; left:0; right:0; height:40%;
+  pointer-events:none; z-index:1; overflow:hidden;
+}
+.steam-puff {
+  position:absolute; bottom:-40px;
+  width:80px; height:80px;
+  background:radial-gradient(circle, #ffffff08, transparent);
+  border-radius:50%;
+  animation:steamRise 4s ease-out infinite;
+  filter:blur(20px);
+}
+@keyframes steamRise {
+  0% { transform:translateY(0) scale(1); opacity:0.3; }
+  50% { opacity:0.15; }
+  100% { transform:translateY(-40vh) scale(2.5); opacity:0; }
+}
+
+/* ====== BUBBLE FLOAT ====== */
+.bubbles-wrap {
+  position:fixed; inset:0; pointer-events:none; z-index:1; overflow:hidden;
+}
+.bubble {
+  position:absolute; border-radius:50%;
+  border:1px solid var(--accent15);
+  background:radial-gradient(circle at 30% 30%, #ffffff10, transparent);
+  animation:bubbleFloat linear infinite;
+}
+@keyframes bubbleFloat {
+  0% { transform:translateY(100vh) rotate(0deg); opacity:0; }
+  10% { opacity:0.6; }
+  90% { opacity:0.2; }
+  100% { transform:translateY(-10vh) rotate(360deg); opacity:0; }
+}
+
+.screen { display:none; position:absolute; inset:0; flex-direction:column; overflow-y:auto; overflow-x:hidden; z-index:10; }
+.screen.active { display:flex; }
+
+/* ====== VOICE COMMAND OVERLAY ====== */
+#voice-overlay {
+  position:fixed; top:0; left:0; right:0;
+  padding:12px 20px;
+  background:linear-gradient(180deg, #00e5ff22, transparent);
+  display:flex; align-items:center; gap:10px;
+  z-index:500; opacity:0;
+  transition:opacity 0.2s;
+  pointer-events:none;
+}
+#voice-overlay.show { opacity:1; }
+#voice-overlay .pulse-ring {
+  width:14px; height:14px; border-radius:50%;
+  background:var(--accent);
+  box-shadow:0 0 12px var(--accent);
+  animation:vpulse 1.2s infinite;
+}
+@keyframes vpulse {
+  0%,100%{transform:scale(1);opacity:1}
+  50%{transform:scale(0.6);opacity:0.4}
+}
+#voice-overlay .voice-text {
+  font-size:13px; color:var(--accent);
+  font-family:var(--fm);
+}
+#voice-cmd-flash {
+  position:fixed; top:50%; left:50%;
+  transform:translate(-50%,-50%);
+  padding:16px 32px;
+  background:var(--bg3); border:2px solid var(--accent);
+  border-radius:16px; z-index:600;
+  font-family:var(--fd); font-size:20px; font-weight:700;
+  color:var(--accent);
+  opacity:0; pointer-events:none;
+  transition:opacity 0.15s;
+}
+#voice-cmd-flash.show {
+  opacity:1;
+  animation:cmdPop 0.6s ease-out;
+}
+@keyframes cmdPop {
+  0%{transform:translate(-50%,-50%) scale(0.8);opacity:0}
+  20%{transform:translate(-50%,-50%) scale(1.1);opacity:1}
+  100%{transform:translate(-50%,-50%) scale(1);opacity:1}
+}
+
+/* ====== HOME ====== */
+#home {
+  justify-content:center; align-items:center; padding:24px;
+  background:radial-gradient(ellipse at 50% 0%, #0d2844 0%, var(--bg) 70%);
+}
+.shower-icon { font-size:48px; margin-bottom:8px; animation:showerWiggle 3s ease-in-out infinite; }
+@keyframes showerWiggle {
+  0%,100% { transform:rotate(-5deg); }
+  50% { transform:rotate(5deg); }
+}
+.logo { font-family:var(--fd); font-size:clamp(2rem,8vw,3.2rem); font-weight:900; letter-spacing:-1px;
+  background:linear-gradient(135deg,var(--accent),#7be0ff,var(--purple));
+  background-size:200% 200%;
+  animation:logoShimmer 3s ease infinite;
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+@keyframes logoShimmer {
+  0%,100% { background-position:0% 50%; }
+  50% { background-position:100% 50%; }
+}
+.sub { font-size:11px; color:var(--dim); margin-bottom:48px; letter-spacing:3px; text-transform:uppercase; }
+.stats { display:flex; gap:28px; margin-bottom:44px; }
+.st-n { font-family:var(--fd); font-size:26px; font-weight:700; color:var(--accent); text-align:center; }
+.st-l { font-size:9px; color:var(--dim); text-transform:uppercase; letter-spacing:1.5px; text-align:center; }
+.actions { display:flex; flex-direction:column; gap:14px; width:100%; max-width:320px; }
+.btn {
+  display:flex; align-items:center; justify-content:center; gap:10px;
+  padding:18px 24px; border:none; border-radius:var(--r);
+  font-family:var(--fd); font-size:14px; font-weight:700;
+  cursor:pointer; transition:all 0.15s;
+  text-transform:uppercase; letter-spacing:1px;
+}
+.btn:active { transform:scale(0.96); }
+.btn-p { background:linear-gradient(135deg, var(--accent), #2196f3); color:var(--bg); box-shadow:0 4px 20px #00b8ff33; }
+.btn-s { background:var(--bg2); color:var(--text); border:1px solid #ffffff15; backdrop-filter:blur(4px); }
+.btn-d { background:var(--red15); color:var(--red); border:1px solid var(--red15); }
+
+/* Splash on validate */
+@keyframes splash {
+  0% { transform:translate(-50%,-50%) scale(0); opacity:1; }
+  100% { transform:translate(-50%,-50%) scale(3); opacity:0; }
+}
+.splash-ring {
+  position:fixed; width:100px; height:100px;
+  border:3px solid var(--green); border-radius:50%;
+  pointer-events:none; z-index:999;
+  animation:splash 0.6s ease-out forwards;
+}
+
+/* ====== WORD MANAGER ====== */
+#import-screen { padding:0; padding-top:54px; }
+.wm-tabs {
+  display:flex; gap:0; 
+  padding:8px 16px; 
+  position:sticky; top:54px; z-index:50;
+  background:var(--bg);
+  border-bottom:1px solid #fff1;
+}
+.wm-tab {
+  flex:1; padding:10px 8px;
+  background:none; border:none; border-bottom:2px solid transparent;
+  color:var(--dim); font-family:var(--fm); font-size:11px;
+  cursor:pointer; text-align:center; transition:all 0.2s;
+}
+.wm-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+.wm-search-wrap {
+  padding:10px 16px;
+  position:sticky; top:100px; z-index:50;
+  background:var(--bg);
+}
+.wm-search-wrap input {
+  width:100%; padding:12px 14px;
+  background:var(--bg2); border:1px solid #fff1;
+  border-radius:10px; color:var(--text);
+  font-family:var(--fm); font-size:13px; outline:none;
+}
+.wm-search-wrap input:focus { border-color:var(--accent); }
+.wm-list {
+  padding:8px 16px 24px; display:flex; flex-direction:column; gap:6px;
+}
+.wm-item {
+  display:flex; align-items:center; gap:12px;
+  padding:12px 14px;
+  background:var(--bg2); border-radius:10px;
+  border-left:3px solid var(--accent30);
+  transition:all 0.15s;
+}
+.wm-item.known { border-left-color:var(--green); }
+.wm-item.known .wm-status { color:var(--green); }
+.wm-item-text { flex:1; min-width:0; }
+.wm-word { font-size:15px; font-weight:700; }
+.wm-trans { font-size:12px; color:var(--dim); margin-top:2px; }
+.wm-status {
+  font-size:9px; text-transform:uppercase; letter-spacing:1px;
+  color:var(--dim); white-space:nowrap;
+}
+.wm-actions { display:flex; gap:6px; }
+.wm-btn {
+  width:30px; height:30px;
+  background:none; border:1px solid #fff1;
+  border-radius:8px; color:var(--dim);
+  font-size:12px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:all 0.15s;
+}
+.wm-btn:active { background:var(--bg3); }
+.wm-btn.del:active { background:var(--red15); color:var(--red); }
+.wm-btn.tog:active { background:var(--green15); color:var(--green); }
+.wm-empty {
+  text-align:center; padding:40px 20px;
+  color:var(--dim); font-size:13px;
+}
+.wm-add-panel { padding:16px; }
+.wm-add-panel textarea {
+  width:100%;padding:13px 14px;background:var(--bg2);border:1px solid #fff1;
+  border-radius:10px;color:var(--text);font-family:var(--fm);font-size:13px;
+  outline:none;resize:vertical;line-height:1.8;
+}
+.wm-add-panel textarea:focus { border-color:var(--accent); }
+.hdr {
+  position:fixed; top:0; left:0; right:0;
+  display:flex; align-items:center; gap:12px;
+  padding:14px 20px; background:var(--bg);
+  border-bottom:1px solid #fff1; z-index:100;
+}
+.back { width:38px; height:38px; background:var(--bg2); border:1px solid #fff1;
+  border-radius:10px; color:var(--text); font-size:16px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; }
+.hdr-t { font-family:var(--fd); font-size:15px; font-weight:700; }
+.imp-s { margin-bottom:28px; }
+.imp-s h3 { font-family:var(--fd); font-size:12px; font-weight:400; color:var(--accent);
+  text-transform:uppercase; letter-spacing:2px; margin-bottom:10px; }
+.imp-s p { font-size:11px; color:var(--dim); margin-bottom:10px; line-height:1.6; }
+.drop {
+  border:2px dashed #fff2; border-radius:var(--r);
+  padding:28px; text-align:center; cursor:pointer; transition:all 0.2s;
+}
+.drop:active { border-color:var(--accent); background:var(--accent15); }
+.drop input { display:none; }
+.drop-i { font-size:28px; margin-bottom:6px; }
+.drop-t { font-size:12px; color:var(--dim); }
+.madd { display:flex; gap:8px; margin-top:10px; }
+.madd input {
+  flex:1; padding:13px 14px; background:var(--bg2); border:1px solid #fff1;
+  border-radius:10px; color:var(--text); font-family:var(--fm); font-size:13px; outline:none;
+}
+.madd input:focus { border-color:var(--accent); }
+.madd button {
+  padding:13px 18px; background:var(--accent); color:var(--bg);
+  border:none; border-radius:10px; font-family:var(--fm); font-weight:700; font-size:14px; cursor:pointer;
+}
+.pool { margin-top:12px; display:flex; flex-wrap:wrap; gap:6px; }
+.chip {
+  padding:7px 12px; background:var(--bg2); border:1px solid #fff1;
+  border-radius:18px; font-size:11px; color:var(--mid);
+  display:flex; align-items:center; gap:6px;
+}
+.chip .x { cursor:pointer; color:var(--red); font-weight:700; }
+.chip.known { border-color:var(--green15); color:var(--green); opacity:0.5; }
+
+/* OCR */
+.ocr-box { margin-top:12px; padding:14px; background:var(--bg2); border-radius:12px; display:none; }
+.ocr-box.show { display:block; }
+.ocr-st { font-size:11px; color:var(--accent); margin-bottom:8px; }
+.ocr-res { display:flex; flex-wrap:wrap; gap:5px; }
+.ocr-w {
+  padding:5px 10px; background:var(--accent15); border:1px solid var(--accent);
+  border-radius:14px; font-size:11px; color:var(--accent); cursor:pointer;
+}
+.ocr-w.sel { background:var(--accent); color:var(--bg); }
+
+/* ====== DRILL ====== */
+#drill { justify-content:space-between; background:var(--bg); overflow:hidden; }
+.d-top {
+  padding:14px 20px; display:flex; justify-content:space-between; align-items:center;
+}
+.d-prog { font-size:11px; color:var(--dim); }
+.d-bar { height:3px; background:#fff1; border-radius:2px; margin-top:3px; overflow:hidden; width:100px; }
+.d-fill { height:100%; background:var(--accent); border-radius:2px; transition:width 0.3s; }
+.d-stop {
+  padding:7px 14px; background:var(--red15); color:var(--red);
+  border:1px solid var(--red15); border-radius:8px;
+  font-family:var(--fm); font-size:10px; cursor:pointer; text-transform:uppercase;
+}
+.d-mic-tog {
+  padding:7px 12px; background:var(--accent15); color:var(--accent);
+  border:1px solid var(--accent30); border-radius:8px;
+  font-size:16px; cursor:pointer; transition:all 0.2s;
+}
+.d-mic-tog.off {
+  background:var(--bg2); color:var(--dim);
+  border-color:#fff1; opacity:0.6;
+}
+
+.d-center {
+  flex:1; display:flex; flex-direction:column;
+  justify-content:center; align-items:center;
+  padding:16px; gap:10px;
+}
+.d-imgs {
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:8px; width:min(92vw, 400px); aspect-ratio:1;
+}
+.d-img-cell {
+  border-radius:14px; overflow:hidden;
+  background:linear-gradient(135deg, var(--bg2), #0d1f35); 
+  border:1px solid #ffffff12;
+  position:relative;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:inset 0 1px 0 #ffffff08;
+}
+.d-img-cell img { width:100%; height:100%; object-fit:cover; display:none; }
+.d-img-cell .ph { font-size:32px; opacity:0.12; }
+.d-img-cell .cell-spin {
+  position:absolute; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:14px; color:var(--accent); opacity:0;
+  animation: spin 1s linear infinite;
+}
+.d-img-cell .cell-spin.on { opacity:0.5; }
+@keyframes spin { to{transform:rotate(360deg)} }
+
+.d-word {
+  font-family:var(--fd); font-size:clamp(2.2rem,11vw,4rem);
+  font-weight:900; text-align:center; line-height:1.2;
+}
+.d-word .accent { color:var(--accent); text-decoration:underline; text-underline-offset:4px; }
+.d-trans { font-size:clamp(1.2rem,5vw,1.8rem); color:var(--text); text-align:center; font-weight:700; }
+.d-wiki-ex {
+  font-size:14px; color:var(--mid); text-align:center; line-height:1.7;
+  padding:12px 16px; background:var(--bg2); border-radius:10px;
+  border-left:3px solid var(--accent30);
+  width:100%; display:none;
+}
+.d-wiki-ex.vis { display:flex; flex-direction:column; gap:6px; }
+.d-wiki-ex .wiki-ru { color:var(--text); display:block; font-size:14px; line-height:1.6; }
+.d-example {
+  font-size:13px; color:var(--dim); text-align:center; line-height:1.6;
+  padding:14px 18px; background:var(--bg2); border-radius:10px;
+  max-width:100%; display:none;
+}
+.d-example.vis { display:block; }
+.d-dots { display:flex; gap:5px; }
+.dot { width:7px; height:7px; border-radius:50%; background:#fff1; transition:background 0.3s; }
+.dot.on { background:var(--accent); box-shadow:0 0 6px var(--accent30); }
+
+.d-bot { padding:14px 20px 36px; display:flex; gap:10px; }
+.d-btn {
+  flex:1; padding:20px; border:none; border-radius:var(--r);
+  font-family:var(--fd); font-size:13px; font-weight:700;
+  cursor:pointer; text-transform:uppercase; letter-spacing:1px;
+  transition:transform 0.12s;
+}
+.d-btn:active { transform:scale(0.95); }
+.d-btn-prev { background:var(--bg2); color:var(--mid); border:1px solid #fff1; flex:0.4; }
+.d-btn-next { background:var(--accent); color:var(--bg); }
+.d-btn-val { background:var(--green15); color:var(--green); border:1px solid var(--green15); flex:0.6; }
+
+/* ====== RECAP ====== */
+#recap { padding:24px 20px; }
+.rc-h { text-align:center; margin-bottom:28px; }
+.rc-t { font-family:var(--fd); font-size:22px; font-weight:900; }
+.rc-emoji { font-size:40px; margin-bottom:8px; animation:showerWiggle 2s ease-in-out infinite; }
+.rc-sub { font-size:11px; color:var(--dim); margin-top:4px; }
+.rc-stats { display:flex; justify-content:center; gap:32px; margin-bottom:28px; }
+.rc-sn { font-family:var(--fd); font-size:28px; font-weight:700; text-align:center; }
+.rc-sn.g { color:var(--green); }
+.rc-sn.o { color:var(--orange); }
+.rc-sl { font-size:9px; color:var(--dim); text-transform:uppercase; letter-spacing:1px; text-align:center; }
+.rc-list { display:flex; flex-direction:column; gap:7px; margin-bottom:28px; }
+.rc-w {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 16px; background:var(--bg2); border-radius:10px;
+  border-left:3px solid var(--orange);
+}
+.rc-w.v { border-left-color:var(--green); opacity:0.6; }
+.rc-wt { font-size:14px; font-weight:700; }
+.rc-wtr { font-size:11px; color:var(--dim); }
+.rc-ws { font-size:10px; text-transform:uppercase; letter-spacing:1px; }
+.rc-ws.p { color:var(--orange); }
+.rc-ws.v { color:var(--green); }
+
+/* ====== SETTINGS ====== */
+#settings { padding:24px 20px; padding-top:64px; }
+.sg { margin-bottom:22px; }
+.sg label { display:block; font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
+.sg select, .sg input[type="number"], .sg input[type="text"] {
+  width:100%; padding:13px 14px; background:var(--bg2); border:1px solid #fff1;
+  border-radius:10px; color:var(--text); font-family:var(--fm); font-size:13px; outline:none;
+}
+.sg select:focus, .sg input:focus { border-color:var(--accent); }
+.trow {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:12px 0; border-bottom:1px solid #fff08;
+}
+.trow label { margin:0; font-size:13px; color:var(--text); text-transform:none; letter-spacing:0; }
+.tog {
+  width:46px; height:26px; background:#fff1; border-radius:13px;
+  position:relative; cursor:pointer; transition:background 0.2s; border:none;
+}
+.tog.on { background:var(--accent); }
+.tog::after {
+  content:''; position:absolute; width:20px; height:20px;
+  background:#fff; border-radius:50%; top:3px; left:3px;
+  transition:transform 0.2s;
+}
+.tog.on::after { transform:translateX(20px); }
+
+/* ====== TOAST ====== */
+.toast {
+  position:fixed; bottom:90px; left:50%; transform:translateX(-50%);
+  padding:10px 20px; background:var(--bg3); border:1px solid var(--accent30);
+  border-radius:10px; font-size:12px; color:var(--accent);
+  z-index:400; opacity:0; transition:opacity 0.25s; pointer-events:none;
+  white-space:nowrap;
+}
+.toast.show { opacity:1; }
+
+/* ====== ANIMATIONS ====== */
+@keyframes wordIn { from{opacity:0;transform:scale(0.85)} to{opacity:1;transform:scale(1)} }
+.wanim { animation:wordIn 0.2s ease-out; }
+</style>
+</head>
+<body>
+
+<!-- SHOWER EFFECTS -->
+<div class="water-drops" id="water-drops"></div>
+<div class="steam-wrap" id="steam-wrap"></div>
+<div class="bubbles-wrap" id="bubbles-wrap"></div>
+
+<!-- VOICE OVERLAY -->
+<div id="voice-overlay">
+  <div class="pulse-ring"></div>
+  <span class="voice-text" id="voice-status">Écoute active...</span>
+</div>
+<div id="voice-cmd-flash"></div>
+
+<!-- HOME -->
+<div id="home" class="screen active">
+  <div class="shower-icon">🚿</div>
+  <div class="logo">ShowerDrill</div>
+  <div class="sub">🧠 Apprends sous la douche 💧</div>
+  <div class="stats">
+    <div><div class="st-n" id="s-pool">0</div><div class="st-l">Mots</div></div>
+    <div><div class="st-n" id="s-known">0</div><div class="st-l">Connus</div></div>
+    <div><div class="st-n" id="s-sess">0</div><div class="st-l">Sessions</div></div>
+  </div>
+  <div class="actions">
+    <button class="btn btn-p" onclick="startDrill()">&#9654; Commencer</button>
+    <div style="display:flex;gap:8px;width:100%">
+      <button class="btn btn-s" style="flex:1;padding:12px;font-size:11px" id="mode-btn" onclick="toggleMode()">Mode : Tout</button>
+      <button class="btn btn-s" style="flex:1;padding:12px;font-size:11px" onclick="resetKnown()">Reset connus</button>
+    </div>
+    <button class="btn btn-s" onclick="nav('import-screen')">📚 Mes mots</button>
+    <button class="btn btn-s" onclick="nav('settings')">&#9881; Réglages</button>
+  </div>
+</div>
+
+<!-- WORD MANAGER -->
+<div id="import-screen" class="screen">
+  <div class="hdr">
+    <button class="back" onclick="nav('home')">&larr;</button>
+    <span class="hdr-t">📚 Mes mots</span>
+    <span style="margin-left:auto;font-size:11px;color:var(--dim)" id="wm-count">0</span>
+  </div>
+
+  <!-- TABS -->
+  <div class="wm-tabs" id="wm-tabs">
+    <button class="wm-tab active" onclick="wmTab('all')">Tous</button>
+    <button class="wm-tab" onclick="wmTab('new')">À drill</button>
+    <button class="wm-tab" onclick="wmTab('known')">Connus</button>
+    <button class="wm-tab" onclick="wmTab('add')">+ Ajouter</button>
+  </div>
+
+  <!-- SEARCH -->
+  <div class="wm-search-wrap">
+    <input type="text" id="wm-search" placeholder="🔍 Chercher un mot..." oninput="renderWordList()">
+  </div>
+
+  <!-- WORD LIST -->
+  <div class="wm-list" id="wm-list"></div>
+
+  <!-- ADD PANEL (hidden by default) -->
+  <div class="wm-add-panel" id="wm-add-panel" style="display:none">
+    <div class="imp-s">
+      <h3>Ajout en masse</h3>
+      <p>Un mot par ligne — Format : mot russe — traduction</p>
+      <textarea id="m-in" rows="8" placeholder="кошка — chat&#10;собака — chien&#10;дом — maison&#10;книга — livre"></textarea>
+      <button class="btn btn-p" style="margin-top:10px;padding:12px;font-size:12px;width:100%" onclick="addWords()">💧 Ajouter tout</button>
+    </div>
+    <div class="imp-s">
+      <h3>LangVault JSON</h3>
+      <div class="drop" onclick="this.querySelector('input').click()">
+        <div class="drop-i">📂</div>
+        <div class="drop-t">Import LangVault</div>
+        <input type="file" accept=".json" onchange="importLV(event)">
+      </div>
+    </div>
+    <div class="imp-s">
+      <h3>Screenshot OCR</h3>
+      <div class="drop" onclick="this.querySelector('input').click()">
+        <div class="drop-i">📸</div>
+        <div class="drop-t">Screenshot Google Translate</div>
+        <input type="file" accept="image/*" onchange="importOCR(event)">
+      </div>
+      <div class="ocr-box" id="ocr-box">
+        <div class="ocr-st" id="ocr-st">...</div>
+        <div class="ocr-res" id="ocr-res"></div>
+        <button class="btn btn-p" style="margin-top:10px;padding:10px;font-size:11px;width:100%" onclick="confirmOCR()">Ajouter sélectionnés</button>
+      </div>
+    </div>
+    <div class="imp-s">
+      <h3>Export</h3>
+      <button class="btn btn-s" style="width:100%;padding:12px;font-size:12px" onclick="exportWords()">📤 Exporter en JSON</button>
+    </div>
+    <div class="imp-s">
+      <button class="btn btn-d" style="width:100%;padding:12px;font-size:12px" onclick="clearAll()">🗑 Tout supprimer</button>
+    </div>
+  </div>
+</div>
+
+<!-- DRILL -->
+<div id="drill" class="screen">
+  <div class="d-top">
+    <div>
+      <div class="d-prog"><span id="dc">1</span> / <span id="dt">10</span></div>
+      <div class="d-bar"><div class="d-fill" id="d-fill"></div></div>
+    </div>
+    <button class="d-stop" onclick="endDrill()">&#9632; Stop</button>
+    <button class="d-mic-tog" id="d-mic-btn" onclick="toggleMicDrill()">🎙</button>
+  </div>
+  <div class="d-center" id="d-center">
+    <div class="d-imgs" id="d-imgs">
+      <div class="d-img-cell"><img alt=""><div class="ph">&#9671;</div><div class="cell-spin">&#10227;</div></div>
+      <div class="d-img-cell"><img alt=""><div class="ph">&#9671;</div><div class="cell-spin">&#10227;</div></div>
+      <div class="d-img-cell"><img alt=""><div class="ph">&#9671;</div><div class="cell-spin">&#10227;</div></div>
+      <div class="d-img-cell"><img alt=""><div class="ph">&#9671;</div><div class="cell-spin">&#10227;</div></div>
+    </div>
+    <div class="d-word wanim" id="d-word">&mdash;</div>
+    <div class="d-trans" id="d-trans"></div>
+    <div class="d-example" id="d-ex"></div>
+    <div class="d-wiki-ex" id="d-wiki-ex"></div>
+    <div class="d-dots" id="d-dots"></div>
+  </div>
+  <div class="d-bot">
+    <button class="d-btn d-btn-prev" onclick="dPrev()">&#9665;</button>
+    <button class="d-btn d-btn-val" onclick="dValid()">&#10003; Connu</button>
+    <button class="d-btn d-btn-next" onclick="dNext()">Suivant &#9655;</button>
+  </div>
+</div>
+
+<!-- RECAP -->
+<div id="recap" class="screen">
+  <div class="rc-h">
+    <div class="rc-emoji">🧖‍♂️</div>
+    <div class="rc-t">Douche terminée !</div>
+    <div class="rc-sub" id="rc-time"></div>
+  </div>
+  <div class="rc-stats">
+    <div><div class="rc-sn g" id="rc-v">0</div><div class="rc-sl">Validés</div></div>
+    <div><div class="rc-sn o" id="rc-p">0</div><div class="rc-sl">À revoir</div></div>
+  </div>
+  <div class="rc-list" id="rc-list"></div>
+  <button class="btn btn-p" style="width:100%" onclick="nav('home')">Retour</button>
+</div>
+
+<!-- SETTINGS -->
+<div id="settings" class="screen">
+  <div class="hdr">
+    <button class="back" onclick="nav('home')">&larr;</button>
+    <span class="hdr-t">Réglages</span>
+  </div>
+  <div class="sg">
+    <label>Mots par session</label>
+    <input type="number" id="opt-wps" value="10" min="3" max="50">
+  </div>
+  <div class="sg">
+    <label>Répétitions avant phrase</label>
+    <input type="number" id="opt-rep" value="3" min="1" max="10">
+  </div>
+  <div class="sg">
+    <label>Vitesse TTS</label>
+    <select id="opt-spd">
+      <option value="0.5">Très lent</option>
+      <option value="0.6">Lent</option>
+      <option value="0.8" selected>Normal</option>
+      <option value="1">Rapide</option>
+      <option value="1.2">Très rapide</option>
+    </select>
+  </div>
+  <div class="sg">
+    <label>Tonalité voix</label>
+    <select id="opt-pitch">
+      <option value="0.7">Grave</option>
+      <option value="1" selected>Normal</option>
+      <option value="1.3">Aigu</option>
+      <option value="1.6">Très aigu</option>
+    </select>
+  </div>
+  <div class="sg">
+    <label>Volume TTS</label>
+    <select id="opt-vol">
+      <option value="0.3">Faible</option>
+      <option value="0.6">Moyen</option>
+      <option value="1" selected>Fort</option>
+    </select>
+  </div>
+  <div class="sg">
+    <button class="btn btn-s" style="width:100%;padding:10px;font-size:11px" onclick="testTTS()">🔊 Tester la voix (Привет)</button>
+  </div>
+  <div class="sg">
+    <label>Pause entre répétitions</label>
+    <select id="opt-delay">
+      <option value="0.5">0.5s</option>
+      <option value="1">1s</option>
+      <option value="2" selected>2s (recommandé)</option>
+      <option value="3">3s</option>
+      <option value="5">5s</option>
+    </select>
+  </div>
+  <div class="sg">
+    <label>Clé API Pexels (optionnel — pexels.com/api)</label>
+    <input type="text" id="opt-pexels" placeholder="Sans clé = images Wikimedia">
+    <button class="btn btn-s" style="margin-top:8px;padding:10px;font-size:11px;width:100%" onclick="testPexels()">🖼 Tester la clé Pexels</button>
+    <div id="pexels-test" style="margin-top:8px;display:none">
+      <p id="pexels-test-status" style="font-size:11px;color:var(--accent);margin-bottom:8px"></p>
+      <img id="pexels-test-img" style="width:100%;max-width:250px;border-radius:10px;display:none">
+    </div>
+  </div>
+  <div class="trow">
+    <label>Contrôle vocal</label>
+    <button class="tog on" id="t-voice" onclick="togS(this)"></button>
+  </div>
+  <div class="trow">
+    <label>Auto-play audio</label>
+    <button class="tog on" id="t-auto" onclick="togS(this)"></button>
+  </div>
+  <div class="trow">
+    <label>Images auto</label>
+    <button class="tog on" id="t-img" onclick="togS(this)"></button>
+  </div>
+  <div style="margin-top:20px">
+    <button class="btn btn-s" style="width:100%;padding:14px" onclick="testMic()">🎙 Tester le micro</button>
+    <p id="mic-test-result" style="font-size:11px;color:var(--dim);margin-top:8px;text-align:center"></p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============ STATE ============
+const K = 'sd_v2';
+let S = load();
+function defaults() {
+  return { words:[], known:[], sessions:0, cfg:{wps:10, rep:3, spd:0.8, pitch:1, vol:1, delay:2, voice:true, autoplay:true, images:true, pexels:''} };
+}
+function load() {
+  try { const r=localStorage.getItem(K); if(r) return {...defaults(),...JSON.parse(r)}; } catch(e){} return defaults();
+}
+function save() { localStorage.setItem(K,JSON.stringify(S)); updHome(); }
+
+// ============ NAV ============
+function nav(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id==='home') updHome();
+  if(id==='import-screen') { wmTab(wmFilter); renderWordList(); }
+  if(id==='settings') loadSettings();
+}
+function updHome() {
+  document.getElementById('s-pool').textContent=S.words.length;
+  document.getElementById('s-known').textContent=S.known.length;
+  document.getElementById('s-sess').textContent=S.sessions;
+}
+
+// ============ SETTINGS ============
+function loadSettings() {
+  document.getElementById('opt-wps').value=S.cfg.wps;
+  document.getElementById('opt-rep').value=S.cfg.rep;
+  document.getElementById('opt-spd').value=S.cfg.spd;
+  document.getElementById('opt-pitch').value=S.cfg.pitch||1;
+  document.getElementById('opt-vol').value=S.cfg.vol||1;
+  document.getElementById('opt-delay').value=S.cfg.delay||2;
+  document.getElementById('opt-pexels').value=S.cfg.pexels||'';
+  document.getElementById('t-voice').className='tog'+(S.cfg.voice?' on':'');
+  document.getElementById('t-auto').className='tog'+(S.cfg.autoplay?' on':'');
+  document.getElementById('t-img').className='tog'+(S.cfg.images?' on':'');
+}
+function saveSettings() {
+  S.cfg.wps=parseInt(document.getElementById('opt-wps').value)||10;
+  S.cfg.rep=parseInt(document.getElementById('opt-rep').value)||3;
+  S.cfg.spd=parseFloat(document.getElementById('opt-spd').value)||0.8;
+  S.cfg.pitch=parseFloat(document.getElementById('opt-pitch').value)||1;
+  S.cfg.vol=parseFloat(document.getElementById('opt-vol').value)||1;
+  S.cfg.delay=parseFloat(document.getElementById('opt-delay').value)||2;
+  S.cfg.pexels=(document.getElementById('opt-pexels').value||'').trim();
+  save();
+}
+function togS(el) {
+  el.classList.toggle('on');
+  const map={'t-voice':'voice','t-auto':'autoplay','t-img':'images'};
+  S.cfg[map[el.id]]=el.classList.contains('on');
+  save();
+}
+
+// ============ IMPORTS ============
+function importLV(e) {
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    try {
+      const d=JSON.parse(ev.target.result);
+      let ws=[];
+      if(Array.isArray(d)) ws=d;
+      else if(d.words) ws=d.words;
+      else if(d.savedWords) ws=Object.entries(d.savedWords).map(([w,v])=>({word:w,translation:v.translation||v.trans||'',example:v.example||v.context||''}));
+      let n=0;
+      ws.forEach(w=>{
+        const word=(w.word||w.term||w.ru||'').trim();
+        const tr=(w.translation||w.trans||w.fr||w.en||'').trim();
+        if(word && !S.words.find(x=>x.w===word)){
+          S.words.push({w:word,t:tr,ex:(w.example||w.context||w.sentence||'').trim(),ts:Date.now()});
+          n++;
+        }
+      });
+      save(); renderPool(); toast(n+' mots importés');
+    } catch(err){ toast('Erreur JSON'); console.error(err); }
+  };
+  r.readAsText(f);
+}
+
+let ocrSel=new Set();
+async function importOCR(e) {
+  const f=e.target.files[0]; if(!f) return;
+  const box=document.getElementById('ocr-box');
+  const st=document.getElementById('ocr-st');
+  const res=document.getElementById('ocr-res');
+  box.classList.add('show'); st.textContent='Chargement Tesseract...'; res.innerHTML=''; ocrSel.clear();
+
+  if(!window.Tesseract){
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    document.head.appendChild(s);
+    await new Promise((ok,no)=>{s.onload=ok;s.onerror=no;});
+  }
+  st.textContent='OCR en cours...';
+  try {
+    const worker=await Tesseract.createWorker('rus+fra');
+    const ret=await worker.recognize(f);
+    await worker.terminate();
+    const lines=ret.data.text.split('\n').filter(l=>l.trim());
+    const pairs=[];
+    lines.forEach(line=>{
+      const cy=line.match(/([а-яА-ЯёЁ\s-]+)/g);
+      const la=line.match(/([a-zA-ZàâäéèêëïîôùûüÿçœæÀÂÄÉÈÊËÏÎÔÙÛÜŸÇŒÆ\s'-]+)/g);
+      if(cy&&la){
+        const ru=cy.map(s=>s.trim()).filter(s=>s.length>1);
+        const fr=la.map(s=>s.trim()).filter(s=>s.length>1);
+        ru.forEach((r,i)=>{ if(fr[i]) pairs.push({w:r,t:fr[i]}); });
+      }
+    });
+    if(!pairs.length){ st.textContent='Aucune paire trouvée.'; return; }
+    st.textContent=pairs.length+' paires — sélectionne :';
+    pairs.forEach((p,i)=>{
+      const el=document.createElement('div');
+      el.className='ocr-w sel'; el.textContent=p.w+' → '+p.t;
+      ocrSel.add(i);
+      el.onclick=()=>{ ocrSel.has(i)?(ocrSel.delete(i),el.classList.remove('sel')):(ocrSel.add(i),el.classList.add('sel')); };
+      res.appendChild(el);
+    });
+    box.dataset.p=JSON.stringify(pairs);
+  } catch(err){ st.textContent='Erreur OCR'; console.error(err); }
+}
+function confirmOCR() {
+  const box=document.getElementById('ocr-box');
+  try {
+    const pairs=JSON.parse(box.dataset.p||'[]');
+    let n=0;
+    ocrSel.forEach(i=>{
+      const p=pairs[i];
+      if(p&&!S.words.find(x=>x.w===p.w)){
+        S.words.push({w:p.w.trim(),t:p.t.trim(),ex:'',ts:Date.now()});
+        n++;
+      }
+    });
+    save(); renderPool(); box.classList.remove('show'); toast(n+' mots ajoutés');
+  } catch(e){ toast('Erreur'); }
+}
+function addWords() {
+  const inp=document.getElementById('m-in');
+  const raw=inp.value.trim(); if(!raw) return;
+  const lines=raw.split('\n').map(l=>l.trim()).filter(l=>l);
+  let n=0, dupes=0;
+  lines.forEach(line=>{
+    // Support multiple separator formats: — – - = > →  tab
+    const parts=line.split(/\s*[—–\-=→>]\s*|\t/);
+    const w=(parts[0]||'').trim(), t=(parts[1]||'').trim();
+    if(!w) return;
+    if(S.words.find(x=>x.w===w)){ dupes++; return; }
+    S.words.push({w,t,ex:'',ts:Date.now()});
+    n++;
+  });
+  save(); renderPool(); inp.value='';
+  let msg=n+' mots ajoutés';
+  if(dupes) msg+=' ('+dupes+' doublons ignorés)';
+  toast(msg);
+}
+// ============ WORD MANAGER ============
+let wmFilter = 'all';
+
+function wmTab(tab) {
+  wmFilter = tab;
+  document.querySelectorAll('.wm-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.wm-tab[onclick="wmTab('${tab}')"]`).classList.add('active');
+  
+  const addPanel = document.getElementById('wm-add-panel');
+  const searchWrap = document.querySelector('.wm-search-wrap');
+  const list = document.getElementById('wm-list');
+  
+  if(tab === 'add') {
+    addPanel.style.display = 'block';
+    searchWrap.style.display = 'none';
+    list.style.display = 'none';
+  } else {
+    addPanel.style.display = 'none';
+    searchWrap.style.display = 'block';
+    list.style.display = 'flex';
+    renderWordList();
+  }
+}
+
+function renderWordList() {
+  const list = document.getElementById('wm-list');
+  const search = (document.getElementById('wm-search').value || '').toLowerCase().trim();
+  document.getElementById('wm-count').textContent = S.words.length + ' mots';
+  
+  let words = S.words.map((w, i) => ({...w, idx: i, isKnown: S.known.includes(w.w)}));
+  
+  // Filter by tab
+  if(wmFilter === 'new') words = words.filter(w => !w.isKnown);
+  if(wmFilter === 'known') words = words.filter(w => w.isKnown);
+  
+  // Filter by search
+  if(search) {
+    words = words.filter(w => 
+      w.w.toLowerCase().includes(search) || 
+      (w.t && w.t.toLowerCase().includes(search))
+    );
+  }
+  
+  list.innerHTML = '';
+  
+  if(words.length === 0) {
+    list.innerHTML = '<div class="wm-empty">' + 
+      (S.words.length === 0 ? '🚿 Aucun mot — va dans + Ajouter' : 
+       wmFilter === 'known' ? '📭 Aucun mot connu encore' :
+       wmFilter === 'new' ? '🎉 Tous les mots sont connus !' :
+       '🔍 Aucun résultat') + '</div>';
+    return;
+  }
+  
+  words.forEach(w => {
+    const el = document.createElement('div');
+    el.className = 'wm-item' + (w.isKnown ? ' known' : '');
+    el.innerHTML = `
+      <div class="wm-item-text">
+        <div class="wm-word">${escHtml(w.w)}</div>
+        <div class="wm-trans">${escHtml(w.t || '—')}</div>
+      </div>
+      <div class="wm-status">${w.isKnown ? '✓ connu' : 'à drill'}</div>
+      <div class="wm-actions">
+        <button class="wm-btn tog" onclick="toggleKnown(${w.idx})" title="${w.isKnown ? 'Marquer inconnu' : 'Marquer connu'}">${w.isKnown ? '↩' : '✓'}</button>
+        <button class="wm-btn del" onclick="rmWord(${w.idx})" title="Supprimer">×</button>
+      </div>`;
+    list.appendChild(el);
+  });
+}
+
+function toggleKnown(i) {
+  const w = S.words[i];
+  if(!w) return;
+  if(S.known.includes(w.w)) {
+    S.known = S.known.filter(k => k !== w.w);
+  } else {
+    S.known.push(w.w);
+  }
+  save(); renderWordList();
+}
+
+function renderPool() { renderWordList(); }
+
+function exportWords() {
+  const data = JSON.stringify({
+    words: S.words,
+    known: S.known,
+    exportedAt: new Date().toISOString(),
+    app: 'ShowerDrill'
+  }, null, 2);
+  const blob = new Blob([data], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'showerdrill-export.json';
+  a.click(); URL.revokeObjectURL(url);
+  toast('📤 Export téléchargé');
+}
+function rmWord(i){ S.words.splice(i,1); save(); renderPool(); }
+function clearAll(){ S.words=[]; S.known=[]; save(); renderPool(); toast('Vidé'); }
+
+// ============ DRILL ENGINE ============
+let D = { words:[], idx:0, reps:0, results:[], t0:null, recog:null, speaking:false };
+let drillMode = 'all'; // 'all' or 'unknown'
+
+function toggleMode() {
+  drillMode = drillMode === 'all' ? 'unknown' : 'all';
+  document.getElementById('mode-btn').textContent = 'Mode : ' + (drillMode === 'all' ? 'Tout' : 'Inconnus');
+}
+
+function resetKnown() {
+  if(!S.known.length){ toast('Rien à reset'); return; }
+  const n = S.known.length;
+  S.known = [];
+  save();
+  toast(n + ' mots remis à zéro');
+}
+
+function startDrill() {
+  saveSettings();
+  const avail = drillMode === 'unknown' 
+    ? S.words.filter(w => !S.known.includes(w.w))
+    : [...S.words];
+  if(!avail.length){ 
+    toast(drillMode === 'unknown' ? 'Tous les mots sont connus ! Reset ou passe en mode Tout.' : 'Aucun mot — importe d\'abord !'); 
+    return; 
+  }
+  
+  // Request mic permission first if voice is enabled
+  if(S.cfg.voice) {
+    requestMic().then(ok => {
+      if(ok) { launchDrill(avail); }
+      else {
+        toast('Micro refusé — mode tactile uniquement');
+        S.cfg.voice = false; save();
+        launchDrill(avail);
+      }
+    });
+  } else {
+    launchDrill(avail);
+  }
+}
+
+async function requestMic() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    // Got permission, release the stream
+    stream.getTracks().forEach(t=>t.stop());
+    return true;
+  } catch(e) {
+    console.log('Mic denied:', e);
+    return false;
+  }
+}
+
+function launchDrill(avail) {
+  const n=Math.min(S.cfg.wps,avail.length);
+  D.words=shuffle([...avail]).slice(0,n);
+  D.idx=0; D.reps=0; D.results=[]; D.t0=Date.now();
+  nav('drill');
+  showWord();
+  startVoice();
+}
+
+function showWord() {
+  const w=D.words[D.idx]; if(!w) return;
+  document.getElementById('dc').textContent=D.idx+1;
+  document.getElementById('dt').textContent=D.words.length;
+  document.getElementById('d-fill').style.width=((D.idx+1)/D.words.length*100)+'%';
+
+  const we=document.getElementById('d-word');
+  we.textContent=w.w; we.classList.remove('wanim'); void we.offsetWidth; we.classList.add('wanim');
+  document.getElementById('d-trans').textContent=w.t||'';
+  document.getElementById('d-wiki-ex').classList.remove('vis');
+  document.getElementById('d-wiki-ex').innerHTML='';
+
+  const ex=document.getElementById('d-ex');
+  if(D.reps>=S.cfg.rep && w.ex){ ex.textContent=w.ex; ex.classList.add('vis'); }
+  else ex.classList.remove('vis');
+
+  const dots=document.getElementById('d-dots'); dots.innerHTML='';
+  for(let i=0;i<S.cfg.rep;i++){
+    const d=document.createElement('div');
+    d.className='dot'+(i<D.reps?' on':'');
+    dots.appendChild(d);
+  }
+
+  loadImage(w);
+  if(S.cfg.autoplay) speak(w.w);
+  
+  // Fetch wiktionary data (stress + example) async
+  fetchWikiData(w.w);
+}
+
+// ============ TTS ============
+let ttsGen = 0; // generation counter — increments on each new word
+
+function speak(text) {
+  window.speechSynthesis.cancel();
+  D.speaking=true;
+  const myGen = ttsGen; // capture current generation
+  
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang='ru-RU'; u.rate=S.cfg.spd; u.pitch=S.cfg.pitch||1; u.volume=S.cfg.vol||1;
+  const voices=window.speechSynthesis.getVoices();
+  const rv=voices.find(v=>v.lang.startsWith('ru'));
+  if(rv) u.voice=rv;
+  u.onend=()=>{
+    // Abort if we've moved to a different word
+    if(myGen !== ttsGen) { D.speaking=false; return; }
+    
+    D.reps++;
+    if(D.reps<S.cfg.rep){
+      const delayMs = (S.cfg.delay || 2) * 1000;
+      setTimeout(()=>{
+        // Check again before repeating — word may have changed during delay
+        if(myGen !== ttsGen) return;
+        speak(text);
+      }, delayMs);
+    } else {
+      D.speaking=false;
+      if(D.reps===S.cfg.rep) showWord();
+    }
+  };
+  u.onerror=()=>{ D.speaking=false; };
+  window.speechSynthesis.speak(u);
+}
+
+// ============ WIKTIONARY DATA (stress + examples) ============
+const wikiCache = {};
+
+async function fetchWikiData(ruWord) {
+  // Cache hit
+  if(wikiCache[ruWord]) {
+    applyWikiData(wikiCache[ruWord], ruWord);
+    return;
+  }
+
+  try {
+    // Fetch rendered HTML from Russian Wiktionary (better for parsing than wikitext)
+    const url = 'https://ru.wiktionary.org/w/api.php?action=parse&page='
+      + encodeURIComponent(ruWord)
+      + '&prop=wikitext|text&format=json&origin=*';
+    const resp = await fetch(url);
+    if(!resp.ok) return;
+    const data = await resp.json();
+    
+    if(!data.parse) return;
+    const wikitext = (data.parse.wikitext && data.parse.wikitext['*']) || '';
+    const html = (data.parse.text && data.parse.text['*']) || '';
+    
+    const result = { stress: null, examples: [] };
+    
+    // ===== STRESS EXTRACTION =====
+    // Strategy 1: Find word with combining acute accent (U+0301) in wikitext
+    const stressRegex = new RegExp('([а-яА-ЯёЁ]*\u0301[а-яА-ЯёЁ]*)', 'g');
+    const allStressed = wikitext.match(stressRegex) || [];
+    // Find the one that matches our word (without the accent mark)
+    const bestStress = allStressed.find(m => {
+      const clean = m.replace(/\u0301/g, '');
+      return clean.toLowerCase() === ruWord.toLowerCase();
+    });
+    if(bestStress) result.stress = bestStress;
+    
+    // Strategy 2: Parse from HTML — look for <b> tags with accent
+    if(!result.stress && html) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const bolds = doc.querySelectorAll('b, strong, .mw-headline');
+      for(const b of bolds) {
+        const txt = b.textContent;
+        if(txt.includes('\u0301')) {
+          const clean = txt.replace(/\u0301/g, '');
+          if(clean.toLowerCase() === ruWord.toLowerCase()) {
+            result.stress = txt;
+            break;
+          }
+        }
+      }
+    }
+    
+    // ===== EXAMPLE SENTENCES EXTRACTION =====
+    // Find {{пример| blocks with proper nesting (handles {{выдел|...}} inside)
+    const examples = extractTemplates(wikitext, 'пример');
+    for(const raw of examples) {
+      if(result.examples.length >= 3) break;
+      // First pipe-separated param is the sentence (but may contain nested templates)
+      let sentence = getFirstParam(raw);
+      // Now resolve nested templates
+      sentence = sentence
+        .replace(/\{\{выдел\|([^}]*)\}\}/g, '$1')  // {{выдел|стол}} → стол
+        .replace(/\{\{помета\|[^}]*\}\}/g, '')      // {{помета|...}} → remove
+        .replace(/\{\{[а-яА-Я-]+\|([^}|]*)\}\}/g, '$1') // other simple templates → keep first arg
+        .replace(/\{\{[^}]*\}\}/g, '')               // remove any remaining templates
+        .replace(/\[\[([^\]|]*\|)?([^\]]*)\]\]/g, '$2')  // [[link|text]] → text
+        .replace(/'''|''/g, '')
+        .replace(/<[^>]+>/g, '')
+        .trim();
+      if(sentence && sentence.length > 8 && sentence.length < 300) {
+        result.examples.push(sentence);
+      }
+    }
+    
+    // Strategy 2: Parse from rendered HTML — look for example containers
+    if(result.examples.length === 0 && html) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      // Wiktionary examples are often in <dd> or class="example"
+      const exEls = doc.querySelectorAll('.example, dd i, .mw-parser-output dd');
+      for(const el of exEls) {
+        const txt = el.textContent.trim();
+        if(txt.length > 8 && txt.length < 200 && /[а-яА-Я]/.test(txt)) {
+          result.examples.push(txt);
+          if(result.examples.length >= 3) break;
+        }
+      }
+    }
+
+    wikiCache[ruWord] = result;
+    applyWikiData(result, ruWord);
+    
+  } catch(e) { console.log('Wiktionary err:', e); }
+}
+
+function applyWikiData(data, ruWord) {
+  const wordEl = document.getElementById('d-word');
+  const wikiExEl = document.getElementById('d-wiki-ex');
+  
+  // Check we're still on the same word
+  if(!D.words[D.idx] || D.words[D.idx].w !== ruWord) return;
+  
+  // Replace the word display with accented version
+  if(data.stress) {
+    // Build HTML: highlight the stressed vowel in accent color
+    const stressed = data.stress;
+    let htmlStr = '';
+    for(let i = 0; i < stressed.length; i++) {
+      if(i + 1 < stressed.length && stressed[i + 1] === '\u0301') {
+        // This char has stress — wrap in accent span
+        htmlStr += '<span class="accent">' + stressed[i] + '\u0301</span>';
+        i++; // skip the combining mark
+      } else {
+        htmlStr += stressed[i];
+      }
+    }
+    wordEl.innerHTML = htmlStr;
+  }
+  
+  // Show example sentences
+  if(data.examples && data.examples.length > 0) {
+    let exHtml = data.examples
+      .map(ex => '<span class="wiki-ru">' + escHtml(ex) + '</span>')
+      .join('');
+    wikiExEl.innerHTML = exHtml;
+    wikiExEl.classList.add('vis');
+  }
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Parse nested {{ }} templates properly
+function extractTemplates(wikitext, name) {
+  const results = [];
+  const marker = '{{' + name + '|';
+  let pos = 0;
+  while(true) {
+    const start = wikitext.indexOf(marker, pos);
+    if(start === -1) break;
+    // Find matching closing }} counting nesting
+    let depth = 1;
+    let i = start + marker.length;
+    while(i < wikitext.length - 1 && depth > 0) {
+      if(wikitext[i] === '{' && wikitext[i+1] === '{') { depth++; i += 2; }
+      else if(wikitext[i] === '}' && wikitext[i+1] === '}') { depth--; i += 2; }
+      else i++;
+    }
+    if(depth === 0) {
+      results.push(wikitext.substring(start + marker.length, i - 2));
+    }
+    pos = i;
+  }
+  return results;
+}
+
+// Get first pipe-separated param, respecting nested templates
+function getFirstParam(raw) {
+  let depth = 0;
+  for(let i = 0; i < raw.length; i++) {
+    if(raw[i] === '{' && i+1 < raw.length && raw[i+1] === '{') { depth++; i++; }
+    else if(raw[i] === '}' && i+1 < raw.length && raw[i+1] === '}') { depth--; i++; }
+    else if(raw[i] === '|' && depth === 0) {
+      return raw.substring(0, i);
+    }
+  }
+  return raw;
+}
+
+// ============ IMAGE LOADING ============
+const imgCache = {};
+
+// FR → EN image search terms (Pexels works way better in English)
+// + contextual modifiers for better visual results
+const frToImgQuery = {
+  // Animals
+  'chat':'cat','chien':'dog','oiseau':'bird','poisson':'fish','cheval':'horse','vache':'cow','cochon':'pig','mouton':'sheep','souris':'mouse','lapin':'rabbit','serpent':'snake','ours':'bear','loup':'wolf','lion':'lion','tigre':'tiger','singe':'monkey','éléphant':'elephant','renard':'fox','cerf':'deer','canard':'duck','tortue':'turtle','papillon':'butterfly','abeille':'bee','fourmi':'ant','araignée':'spider','grenouille':'frog','requin':'shark','baleine':'whale','aigle':'eagle','hibou':'owl','perroquet':'parrot',
+  // Food & drink
+  'pain':'bread loaf','eau':'glass of water','lait':'glass of milk','pomme':'red apple fruit','viande':'raw meat','fromage':'cheese wheel','oeuf':'eggs','soupe':'bowl of soup','café':'cup of coffee','thé':'cup of tea','bière':'beer glass','vin':'wine glass','gâteau':'birthday cake','chocolat':'chocolate bar','glace':'ice cream cone','riz':'bowl of rice','salade':'fresh salad','pizza':'pizza','sel':'salt shaker','sucre':'sugar cubes','beurre':'butter','confiture':'jam jar','miel':'honey jar','poivre':'pepper','citron':'lemon','orange':'orange fruit','banane':'banana','fraise':'strawberry','cerise':'cherry','raisin':'grapes','tomate':'tomato','carotte':'carrot','pomme de terre':'potato','oignon':'onion',
+  // Body
+  'main':'human hand','oeil':'human eye close up','yeux':'human eyes','coeur':'red heart','tête':'human head','pied':'human foot','nez':'human nose','bouche':'human lips','oreille':'human ear','dent':'white teeth smile','doigt':'pointing finger','bras':'human arm','jambe':'human leg','dos':'human back','épaule':'human shoulder','genou':'human knee','cheveux':'hair','visage':'human face portrait','sang':'blood drop',
+  // Nature
+  'soleil':'bright sun sky','lune':'full moon night','étoile':'stars night sky','arbre':'green tree','fleur':'colorful flower','montagne':'mountain landscape','mer':'ocean waves','rivière':'river flowing','pluie':'rain drops','neige':'snow winter','feu':'campfire flames','terre':'earth planet','nuage':'white clouds sky','vent':'wind blowing trees','forêt':'forest trees','plage':'sandy beach','île':'tropical island','lac':'calm lake','désert':'desert sand dunes','ciel':'blue sky','herbe':'green grass','pierre':'stone rock','sable':'sand','glace':'ice frozen',
+  // Objects
+  'maison':'house exterior','voiture':'car','livre':'open book','clé':'metal key','téléphone':'smartphone','montre':'wristwatch','lunettes':'eyeglasses','couteau':'kitchen knife','chaise':'wooden chair','table':'dining table','porte':'wooden door','fenêtre':'window light','lampe':'table lamp','sac':'handbag','lit':'bed bedroom','miroir':'mirror reflection','parapluie':'umbrella rain','vélo':'bicycle','avion':'airplane sky','bateau':'sailboat','train':'train railway','bus':'city bus','horloge':'wall clock','stylo':'pen writing','crayon':'pencil','papier':'sheet of paper','journal':'newspaper','lettre':'envelope letter','carte':'map','bouteille':'bottle','verre':'drinking glass','assiette':'plate','cuillère':'spoon','fourchette':'fork','tasse':'coffee cup ceramic',
+  // People & roles
+  'homme':'man portrait','femme':'woman portrait','enfant':'child playing','bébé':'baby','ami':'friends together','médecin':'doctor hospital','professeur':'teacher classroom','roi':'king crown','reine':'queen crown','soldat':'soldier','police':'police officer','famille':'family together','voisin':'neighbor','étudiant':'student studying',
+  // Actions / verbs → show someone doing it
+  'courir':'person running','marcher':'person walking','manger':'person eating','boire':'person drinking','dormir':'person sleeping','lire':'person reading book','écrire':'person writing','parler':'people talking','écouter':'person listening music','chanter':'person singing','danser':'person dancing','nager':'person swimming','voler':'bird flying','tomber':'falling','sauter':'person jumping','rire':'person laughing','pleurer':'person crying','travailler':'person working desk','jouer':'children playing','cuisiner':'person cooking kitchen','conduire':'person driving car','voyager':'travel suitcase airport','acheter':'person shopping','vendre':'market selling','ouvrir':'opening door','fermer':'closing door','chercher':'person searching','trouver':'finding treasure','donner':'giving gift','prendre':'hand grabbing','porter':'person carrying','construire':'building construction','casser':'broken glass','couper':'cutting with scissors','laver':'washing hands','nettoyer':'cleaning',
+  // Adjectives → show the quality
+  'grand':'tall building','petit':'tiny miniature','gros':'large big','beau':'beautiful landscape sunset','laid':'ugly','vieux':'old vintage','jeune':'young person','nouveau':'brand new','bon':'thumbs up good','mauvais':'thumbs down','chaud':'hot fire heat','froid':'cold ice winter','rapide':'fast speed','lent':'slow snail','fort':'strong muscles','faible':'weak','heureux':'happy smiling person','triste':'sad person','riche':'luxury gold','pauvre':'poverty','propre':'clean white','sale':'dirty muddy','facile':'easy simple','difficile':'hard challenge','long':'long road','court':'short','lourd':'heavy weights','léger':'light feather','plein':'full glass','vide':'empty room',
+  // Abstract → best visual representation
+  'amour':'love heart couple','temps':'clock time','argent':'money coins','travail':'office work desk','musique':'music instruments','guerre':'war battlefield','paix':'peace dove','mort':'graveyard','vie':'newborn life','jour':'sunny day','nuit':'night city lights','été':'summer beach','hiver':'winter snow','question':'question mark','idée':'lightbulb idea','rêve':'dreaming clouds','force':'strength power','joie':'joy happiness','tristesse':'sadness','peur':'fear dark','colère':'anger','liberté':'freedom sky','vérité':'truth','mensonge':'mask deception','danger':'warning danger sign','chance':'four leaf clover luck','problème':'puzzle problem','solution':'solution key','santé':'health wellness','maladie':'sick illness',
+  // Places
+  'ville':'city skyline','village':'small village','pays':'country landscape','école':'school building','hôpital':'hospital building','église':'church building','magasin':'shop store','restaurant':'restaurant interior','bibliothèque':'library books','gare':'train station','aéroport':'airport terminal','bureau':'office workspace','jardin':'garden flowers','parc':'park green','rue':'city street','pont':'bridge','château':'castle','prison':'prison bars','usine':'factory industrial',
+  // Clothing
+  'chapeau':'hat','chemise':'shirt','pantalon':'pants','robe':'dress','chaussure':'shoes pair','manteau':'winter coat','écharpe':'scarf','gants':'gloves',
+  // Weather
+  'orage':'thunderstorm lightning','brouillard':'fog mist','tempête':'storm','arc-en-ciel':'rainbow sky',
+};
+
+// Emoji fallback for abstract words
+const emojiMap = {
+  'chat':'🐱','chien':'🐕','oiseau':'🐦','poisson':'🐟','cheval':'🐴','vache':'🐄','cochon':'🐷','mouton':'🐑','souris':'🐭','lapin':'🐰','serpent':'🐍','ours':'🐻','loup':'🐺','lion':'🦁','tigre':'🐯','singe':'🐵','éléphant':'🐘','renard':'🦊',
+  'pain':'🍞','eau':'💧','lait':'🥛','pomme':'🍎','fromage':'🧀','café':'☕','thé':'🍵','bière':'🍺','vin':'🍷','gâteau':'🎂','chocolat':'🍫','glace':'🍦','pizza':'🍕',
+  'main':'✋','oeil':'👁','coeur':'❤️','tête':'🗣','pied':'🦶',
+  'soleil':'☀️','lune':'🌙','étoile':'⭐','arbre':'🌳','fleur':'🌸','montagne':'⛰️','mer':'🌊','neige':'❄️','feu':'🔥','terre':'🌍',
+  'maison':'🏠','voiture':'🚗','livre':'📖','clé':'🔑','téléphone':'📱',
+  'homme':'👨','femme':'👩','enfant':'👶','famille':'👨‍👩‍👧‍👦',
+  'amour':'❤️','temps':'⏰','argent':'💰','travail':'💼','musique':'🎵','guerre':'⚔️','paix':'☮️','mort':'💀','vie':'🌱','joie':'😊','tristesse':'😢','peur':'😨','colère':'😠','rêve':'💭','idée':'💡','force':'💪',
+};
+
+async function buildImageQuery(frTerm) {
+  const term = frTerm.toLowerCase().trim();
+  // Direct match in our curated dictionary (best results)
+  if(frToImgQuery[term]) return frToImgQuery[term];
+  // Partial match (e.g. "petite" matches "petit")
+  for(const [k,v] of Object.entries(frToImgQuery)) {
+    if(term.startsWith(k) || k.startsWith(term)) return v;
+  }
+  // Auto-translate FR → EN for Pexels (always search in English)
+  const enTerm = await translateToEn(term);
+  return enTerm;
+}
+
+async function loadImage(w) {
+  const cells = document.querySelectorAll('.d-img-cell');
+  // Reset all cells
+  cells.forEach(c => {
+    c.querySelector('img').style.display='none';
+    c.querySelector('.ph').style.display='block';
+    c.querySelector('.ph').textContent='◇';
+    c.querySelector('.ph').style.fontSize='32px';
+    c.querySelector('.ph').style.opacity='0.12';
+    c.querySelector('.cell-spin').classList.remove('on');
+  });
+
+  if(!S.cfg.images) return;
+
+  const frTerm = (w.t || '').toLowerCase().trim();
+
+  // Cache hit — array of urls
+  if(imgCache[w.w]) {
+    imgCache[w.w].forEach((url,i) => { if(cells[i]) applyCellImage(cells[i], url); });
+    return;
+  }
+
+  cells.forEach(c => c.querySelector('.cell-spin').classList.add('on'));
+
+  const query = await buildImageQuery(frTerm);
+  let urls = [];
+
+  // Pexels: get 4 images
+  if(S.cfg.pexels) {
+    urls = await tryPexelsMulti(query, 4);
+  }
+
+  // Wikimedia fallback if Pexels gave less than 4
+  if(urls.length < 4) {
+    const wikiUrls = await tryCommonsSearchMulti(query, 4 - urls.length);
+    urls = urls.concat(wikiUrls);
+  }
+  if(urls.length < 4 && frTerm) {
+    const wikiUrls2 = await tryCommonsSearchMulti(frTerm, 4 - urls.length);
+    urls = urls.concat(wikiUrls2);
+  }
+
+  // Cache
+  if(urls.length > 0) imgCache[w.w] = urls;
+
+  // Apply to cells
+  cells.forEach((c, i) => {
+    c.querySelector('.cell-spin').classList.remove('on');
+    if(urls[i]) {
+      applyCellImage(c, urls[i]);
+    } else {
+      // Emoji fallback on remaining cells
+      const emoji = findEmoji(frTerm);
+      if(emoji && i === 0) {
+        c.querySelector('.ph').textContent = emoji;
+        c.querySelector('.ph').style.fontSize = '48px';
+        c.querySelector('.ph').style.opacity = '1';
+      }
+    }
+  });
+}
+
+function applyCellImage(cell, url) {
+  const img = cell.querySelector('img');
+  const ph = cell.querySelector('.ph');
+  img.onload = () => { img.style.display='block'; ph.style.display='none'; };
+  img.onerror = () => { ph.style.display='block'; img.style.display='none'; };
+  img.src = url;
+}
+
+function findEmoji(term) {
+  if(emojiMap[term]) return emojiMap[term];
+  for(const [k,v] of Object.entries(emojiMap)) {
+    if(term.includes(k) || k.includes(term)) return v;
+  }
+  return null;
+}
+
+async function tryPexelsMulti(term, count) {
+  try {
+    const resp=await fetch('https://api.pexels.com/v1/search?query='+encodeURIComponent(term)+'&per_page='+count+'&size=small',{
+      headers:{'Authorization':S.cfg.pexels}
+    });
+    if(resp.ok){
+      const data=await resp.json();
+      if(data.photos) return data.photos.map(p => p.src.medium);
+    }
+  } catch(e){ console.log('Pexels err:',e); }
+  return [];
+}
+
+async function tryCommonsSearchMulti(term, count) {
+  try {
+    const apiUrl = 'https://commons.wikimedia.org/w/api.php?action=query'
+      + '&generator=search&gsrnamespace=6'
+      + '&gsrsearch=' + encodeURIComponent(term)
+      + '&gsrlimit=' + Math.max(count + 3, 8)
+      + '&prop=imageinfo&iiprop=url|mime&iiurlwidth=300'
+      + '&format=json&origin=*';
+    const resp = await fetch(apiUrl);
+    if(!resp.ok) return [];
+    const data = await resp.json();
+    if(!data.query || !data.query.pages) return [];
+    
+    const urls = Object.values(data.query.pages)
+      .filter(p => p.imageinfo && p.imageinfo[0])
+      .filter(p => {
+        const mime = p.imageinfo[0].mime || '';
+        return mime.startsWith('image/jpeg') || mime.startsWith('image/png') || mime.startsWith('image/webp');
+      })
+      .filter(p => {
+        const title = (p.title||'').toLowerCase();
+        return !title.includes('icon') && !title.includes('logo') && !title.includes('flag');
+      })
+      .map(p => p.imageinfo[0].thumburl || p.imageinfo[0].url)
+      .slice(0, count);
+    
+    return urls;
+  } catch(e){ console.log('Commons err:', e); }
+  return [];
+}
+
+// ============ VOICE RECOGNITION ============
+let voiceRetryCount = 0;
+
+function startVoice() {
+  if(!S.cfg.voice) return;
+  if(!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)){
+    toast('Vocal non supporté');
+    return;
+  }
+  
+  stopVoice();
+  voiceRetryCount = 0;
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  D.recog = new SR();
+  D.recog.continuous = true;
+  D.recog.interimResults = true;
+  D.recog.lang = 'fr-FR';
+  D.recog.maxAlternatives = 3;
+
+  D.recog.onstart = () => {
+    voiceRetryCount = 0;
+    showVoice(true, '🎙 Écoute — dis "suivant", "connu" ou "stop"');
+  };
+
+  D.recog.onresult = (e) => {
+    for(let i=e.resultIndex; i<e.results.length; i++) {
+      const result = e.results[i];
+      
+      // Show interim text for feedback only — do NOT execute commands on interim
+      if(!result.isFinal) {
+        showVoice(true, '🎙 "' + result[0].transcript.trim() + '"...');
+        continue;
+      }
+      
+      // Only act on FINAL results to avoid multi-trigger
+      for(let j=0; j<result.length; j++) {
+        const text = result[j].transcript.toLowerCase().trim();
+        const matched = matchCmd(text);
+        if(matched) { flashCmd(matched); return; }
+      }
+    }
+  };
+
+  D.recog.onend = () => {
+    if(document.getElementById('drill').classList.contains('active') && S.cfg.voice) {
+      voiceRetryCount++;
+      if(voiceRetryCount < 100) {
+        setTimeout(()=>{ try{D.recog.start();}catch(e){} }, 80);
+      } else {
+        showVoice(true, '⏸ Micro en pause...');
+        setTimeout(()=>{ voiceRetryCount=0; try{D.recog.start();}catch(e){} }, 2000);
+      }
+    } else {
+      showVoice(false);
+    }
+  };
+
+  D.recog.onerror = (e) => {
+    if(e.error === 'not-allowed') {
+      toast('⚠ Autorise le micro !');
+      showVoice(true, '⚠ Micro non autorisé');
+    } else if(e.error === 'no-speech') {
+      showVoice(true, '🎙 Parle plus fort...');
+    }
+  };
+
+  try { D.recog.start(); } catch(e){}
+}
+
+let cmdCooldown = 0;
+function matchCmd(text) {
+  // Cooldown: ignore commands for 800ms after last one
+  const now = Date.now();
+  if(now - cmdCooldown < 800) return null;
+  
+  const cmds = {
+    'SUIVANT ▷': ['next','suivant','prochain','continue','passe','pass','avance','suite'],
+    '◁ PRÉCÉDENT': ['previous','précédent','précédente','retour','back','arrière','reviens'],
+    '✓ CONNU': ['validate','valide','validé','connu','connue','je connais','acquis'],
+    '■ STOP': ['stop','arrête','arrêter','fin','termine','terminé','fini']
+  };
+  
+  for(const [label, triggers] of Object.entries(cmds)) {
+    if(triggers.some(t => text.includes(t))) {
+      cmdCooldown = now;
+      if(label.includes('SUIVANT')) dNext();
+      else if(label.includes('PRÉCÉDENT')) dPrev();
+      else if(label.includes('CONNU')) dValid();
+      else if(label.includes('STOP')) endDrill();
+      return label;
+    }
+  }
+  return null;
+}
+
+function flashCmd(label) {
+  const el=document.getElementById('voice-cmd-flash');
+  el.textContent=label;
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),800);
+}
+function showVoice(show, text) {
+  const ov=document.getElementById('voice-overlay');
+  if(text) document.getElementById('voice-status').textContent=text;
+  ov.classList.toggle('show',show);
+}
+function stopVoice() {
+  if(D.recog){try{D.recog.stop();}catch(e){} D.recog=null;}
+  showVoice(false);
+}
+
+// ============ DRILL CONTROLS ============
+function dNext() {
+  const w=D.words[D.idx];
+  if(w && !D.results.find(r=>r.w===w.w)) D.results.push({w:w.w,t:w.t,v:false});
+  D.idx++; D.reps=0; ttsGen++; speechSynthesis.cancel(); D.speaking=false;
+  if(D.idx>=D.words.length) endDrill(); else showWord();
+}
+function dPrev() {
+  if(D.idx>0){
+    D.idx--; D.reps=0; ttsGen++; speechSynthesis.cancel(); D.speaking=false;
+    D.results=D.results.filter(r=>r.w!==D.words[D.idx].w);
+    showWord();
+  }
+}
+function dValid() {
+  const w=D.words[D.idx];
+  D.results=D.results.filter(r=>r.w!==w.w);
+  D.results.push({w:w.w,t:w.t,v:true});
+  if(!S.known.includes(w.w)){ S.known.push(w.w); save(); }
+  toast('💧 Validé !');
+  doSplash();
+  setTimeout(()=>{
+    D.idx++; D.reps=0; ttsGen++; speechSynthesis.cancel(); D.speaking=false;
+    if(D.idx>=D.words.length) endDrill(); else showWord();
+  },450);
+}
+
+function doSplash() {
+  const ring = document.createElement('div');
+  ring.className = 'splash-ring';
+  ring.style.left = '50%'; ring.style.top = '50%';
+  document.body.appendChild(ring);
+  setTimeout(()=>ring.remove(), 700);
+}
+function endDrill() {
+  ttsGen++; speechSynthesis.cancel(); D.speaking=false; stopVoice();
+  const w=D.words[D.idx];
+  if(w && !D.results.find(r=>r.w===w.w)) D.results.push({w:w.w,t:w.t,v:false});
+  S.sessions++; save(); showRecap();
+}
+
+function showRecap() {
+  const sec=Math.round((Date.now()-D.t0)/1000);
+  document.getElementById('rc-time').textContent=Math.floor(sec/60)+'m '+sec%60+'s — '+D.results.length+' mots';
+  const vn=D.results.filter(r=>r.v).length, pn=D.results.filter(r=>!r.v).length;
+  document.getElementById('rc-v').textContent=vn;
+  document.getElementById('rc-p').textContent=pn;
+  const list=document.getElementById('rc-list'); list.innerHTML='';
+  D.results.forEach(r=>{
+    const el=document.createElement('div');
+    el.className='rc-w'+(r.v?' v':'');
+    el.innerHTML='<div><div class="rc-wt">'+r.w+'</div><div class="rc-wtr">'+r.t+'</div></div><div class="rc-ws '+(r.v?'v':'p')+'">'+(r.v?'Connu':'À revoir')+'</div>';
+    list.appendChild(el);
+  });
+  nav('recap');
+}
+
+// ============ SWIPE ============
+let tx=0,ty=0;
+document.getElementById('d-center').addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
+document.getElementById('d-center').addEventListener('touchend',e=>{
+  const dx=e.changedTouches[0].clientX-tx, dy=e.changedTouches[0].clientY-ty;
+  if(Math.abs(dx)>60 && Math.abs(dx)>Math.abs(dy)){ dx>0?dPrev():dNext(); }
+});
+
+// ============ UTILS ============
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function toast(m){const e=document.getElementById('toast');e.textContent=m;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2000);}
+
+// ============ INIT ============
+window.addEventListener('load',()=>{
+  updHome(); loadSettings();
+  speechSynthesis.getVoices();
+  speechSynthesis.onvoiceschanged=()=>speechSynthesis.getVoices();
+  spawnShowerEffects();
+});
+
+function spawnShowerEffects() {
+  // Water droplets
+  const drops = document.getElementById('water-drops');
+  for(let i = 0; i < 30; i++) {
+    const d = document.createElement('div');
+    d.className = 'drop-particle';
+    d.style.left = Math.random() * 100 + '%';
+    d.style.height = (10 + Math.random() * 20) + 'px';
+    d.style.animationDuration = (1.5 + Math.random() * 2) + 's';
+    d.style.animationDelay = Math.random() * 3 + 's';
+    drops.appendChild(d);
+  }
+  
+  // Steam puffs
+  const steam = document.getElementById('steam-wrap');
+  for(let i = 0; i < 6; i++) {
+    const p = document.createElement('div');
+    p.className = 'steam-puff';
+    p.style.left = (10 + Math.random() * 80) + '%';
+    p.style.width = (60 + Math.random() * 80) + 'px';
+    p.style.height = p.style.width;
+    p.style.animationDuration = (3 + Math.random() * 4) + 's';
+    p.style.animationDelay = Math.random() * 4 + 's';
+    steam.appendChild(p);
+  }
+  
+  // Bubbles
+  const bubbles = document.getElementById('bubbles-wrap');
+  for(let i = 0; i < 8; i++) {
+    const b = document.createElement('div');
+    b.className = 'bubble';
+    const size = 8 + Math.random() * 20;
+    b.style.width = size + 'px';
+    b.style.height = size + 'px';
+    b.style.left = Math.random() * 100 + '%';
+    b.style.animationDuration = (6 + Math.random() * 8) + 's';
+    b.style.animationDelay = Math.random() * 6 + 's';
+    bubbles.appendChild(b);
+  }
+}
+['opt-wps','opt-rep','opt-spd','opt-pitch','opt-vol','opt-delay','opt-pexels'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', saveSettings);
+  document.getElementById(id).addEventListener('blur', saveSettings);
+});
+
+async function testMic() {
+  const res = document.getElementById('mic-test-result');
+  res.textContent = 'Demande d\'accès au micro...';
+  res.style.color = 'var(--accent)';
+  
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    stream.getTracks().forEach(t=>t.stop());
+    res.textContent = '✓ Micro autorisé ! ';
+    res.style.color = 'var(--green)';
+    
+    // Quick voice recognition test
+    if('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      res.textContent += 'Dis quelque chose...';
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const r = new SR();
+      r.lang='fr-FR'; r.interimResults=true; r.maxAlternatives=1;
+      r.onresult=(e)=>{
+        const t=e.results[0][0].transcript;
+        res.textContent='✓ Entendu : "'+t+'"';
+        res.style.color='var(--green)';
+        try{r.stop();}catch(e){}
+      };
+      r.onerror=(e)=>{
+        res.textContent='⚠ Erreur : '+e.error;
+        res.style.color='var(--orange)';
+      };
+      r.onend=()=>{
+        if(!res.textContent.includes('Entendu')){
+          res.textContent+=' (pas de parole détectée)';
+        }
+      };
+      r.start();
+      setTimeout(()=>{try{r.stop();}catch(e){}},5000);
+    } else {
+      res.textContent = '⚠ Reconnaissance vocale non supportée par ce navigateur';
+      res.style.color = 'var(--orange)';
+    }
+  } catch(e) {
+    res.textContent = '✗ Micro refusé — vérifie les permissions du navigateur';
+    res.style.color = 'var(--red)';
+  }
+}
+
+async function testPexels() {
+  saveSettings();
+  const box = document.getElementById('pexels-test');
+  const st = document.getElementById('pexels-test-status');
+  const img = document.getElementById('pexels-test-img');
+  box.style.display='block'; img.style.display='none';
+  
+  const key = S.cfg.pexels;
+  if(!key) {
+    st.textContent='⚠ Colle ta clé API Pexels d\'abord'; st.style.color='var(--orange)';
+    return;
+  }
+  
+  st.textContent='Test en cours... (recherche "chat")'; st.style.color='var(--accent)';
+  
+  try {
+    const resp = await fetch('https://api.pexels.com/v1/search?query=cat&per_page=1&size=small', {
+      headers: {'Authorization': key}
+    });
+    
+    if(resp.status === 401 || resp.status === 403) {
+      st.textContent='✗ Clé invalide ou expirée'; st.style.color='var(--red)';
+      return;
+    }
+    if(!resp.ok) {
+      st.textContent='✗ Erreur HTTP '+resp.status; st.style.color='var(--red)';
+      return;
+    }
+    
+    const data = await resp.json();
+    if(data.photos && data.photos[0]) {
+      const url = data.photos[0].src.small;
+      st.textContent='✓ Clé OK ! Chargement de l\'image...'; st.style.color='var(--green)';
+      img.src = url;
+      img.onload = ()=>{ 
+        img.style.display='block'; 
+        st.textContent='✓ Pexels fonctionne parfaitement !'; 
+      };
+      img.onerror = ()=>{
+        st.textContent='✓ API OK mais image bloquée (CORS). Héberge l\'app sur un serveur (GitHub Pages, etc.)';
+        st.style.color='var(--orange)';
+      };
+    } else {
+      st.textContent='✗ API OK mais aucune photo retournée'; st.style.color='var(--orange)';
+    }
+  } catch(e) {
+    if(e.message && e.message.includes('Failed to fetch')) {
+      st.textContent='✗ Requête bloquée — ouvre l\'app via un serveur (pas file://). Utilise GitHub Pages ou python3 -m http.server';
+      st.style.color='var(--red)';
+    } else {
+      st.textContent='✗ Erreur : '+e.message; st.style.color='var(--red)';
+    }
+    console.log('Pexels test err:', e);
+  }
+}
+
+function toggleMicDrill() {
+  const btn = document.getElementById('d-mic-btn');
+  if(D.recog) {
+    // Micro is on → turn off
+    stopVoice();
+    btn.classList.add('off');
+    btn.textContent = '🔇';
+    toast('Micro désactivé');
+  } else {
+    // Micro is off → turn on
+    btn.classList.remove('off');
+    btn.textContent = '🎙';
+    startVoice();
+    toast('Micro activé');
+  }
+}
+
+function testTTS() {
+  saveSettings();
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance('Привет, как дела? Я учу русский язык.');
+  u.lang='ru-RU'; u.rate=S.cfg.spd; u.pitch=S.cfg.pitch||1; u.volume=S.cfg.vol||1;
+  const voices=speechSynthesis.getVoices();
+  const rv=voices.find(v=>v.lang.startsWith('ru'));
+  if(rv) u.voice=rv;
+  speechSynthesis.speak(u);
+  toast('🔊 Test voix russe');
+}
+
+// ============ FR→EN TRANSLATION FOR IMAGE SEARCH ============
+const transCache = {};
+
+async function translateToEn(frTerm) {
+  if(!frTerm) return frTerm;
+  const key = frTerm.toLowerCase().trim();
+  // Check local dict first
+  if(frToImgQuery[key]) return frToImgQuery[key];
+  // Check cache
+  if(transCache[key]) return transCache[key];
+  // Use MyMemory free translation API (no key needed, 5000 words/day)
+  try {
+    const resp = await fetch('https://api.mymemory.translated.net/get?q='+encodeURIComponent(key)+'&langpair=fr|en');
+    if(resp.ok) {
+      const data = await resp.json();
+      if(data.responseData && data.responseData.translatedText) {
+        const en = data.responseData.translatedText.toLowerCase();
+        transCache[key] = en;
+        return en;
+      }
+    }
+  } catch(e) { console.log('Translate err:', e); }
+  return key; // fallback to French term
+}
+</script>
+</body>
+</html>
