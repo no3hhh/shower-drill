@@ -583,7 +583,8 @@ html,body {
       <div class="ocr-box" id="ocr-box">
         <div class="ocr-st" id="ocr-st">...</div>
         <div class="ocr-res" id="ocr-res"></div>
-        <button class="btn btn-p" style="margin-top:10px;padding:10px;font-size:11px;width:100%" onclick="confirmOCR()">Ajouter sélectionnés</button>
+        <button class="btn btn-p" style="margin-top:10px;padding:10px;font-size:11px;width:100%" onclick="confirmOCR()">Ajouter tel quel</button>
+        <button class="btn btn-s" style="margin-top:6px;padding:10px;font-size:11px;width:100%;border-color:var(--green15);color:var(--green)" onclick="confirmOCRClean()">✨ Corriger & ajouter (vire les 0, C...)</button>
       </div>
     </div>
     <div class="imp-s">
@@ -825,34 +826,26 @@ async function importOCR(e) {
     const worker=await Tesseract.createWorker('rus+fra');
     const ret=await worker.recognize(f);
     await worker.terminate();
-    const lines=ret.data.text.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
+    const lines=ret.data.text.split('\n').filter(l=>l.trim());
     const pairs=[];
-    
-    const hasCyrillic = (s) => /[а-яА-ЯёЁ]/.test(s);
-    const hasLatin = (s) => /[a-zA-ZàâäéèêëïîôùûüÿçœæÀÂÄ]/.test(s);
-    const isMostlyCyrillic = (s) => {
-      const cy = (s.match(/[а-яА-ЯёЁ]/g)||[]).length;
-      return cy > s.replace(/\s/g,'').length * 0.5;
-    };
-    const isMostlyLatin = (s) => {
-      const la = (s.match(/[a-zA-ZàâäéèêëïîôùûüÿçœæÀÂÄ]/g)||[]).length;
-      return la > s.replace(/\s/g,'').length * 0.5;
-    };
-    
-    // Google Translate format: alternating lines (Russian bold, French below)
+
+    // Detect line type
+    const isCyrillic = (s) => /[а-яА-ЯёЁ]/.test(s);
+    const isLatin = (s) => /[a-zA-ZàâäéèêëïîôùûüÿçœæÀÂÄ]/.test(s) && !/[а-яА-ЯёЁ]/.test(s);
+
+    // Google Translate format: alternating lines
     for(let i = 0; i < lines.length - 1; i++) {
-      const a = lines[i], b = lines[i+1];
+      const a = lines[i].trim(), b = lines[i+1].trim();
       if(a.length < 2 || b.length < 2) continue;
-      
-      if(isMostlyCyrillic(a) && isMostlyLatin(b)) {
+      if(isCyrillic(a) && isLatin(b)) {
         pairs.push({w: a, t: b});
         i++;
-      } else if(isMostlyLatin(a) && isMostlyCyrillic(b)) {
+      } else if(isLatin(a) && isCyrillic(b)) {
         pairs.push({w: b, t: a});
         i++;
       }
     }
-    
+
     // Fallback: same-line pairs
     if(pairs.length === 0) {
       lines.forEach(line=>{
@@ -865,26 +858,21 @@ async function importOCR(e) {
         }
       });
     }
-    
-    // === POST-CLEAN: strip OCR junk from each pair ===
-    const cleanPairs = pairs.map(p => ({
-      // Keep only cyrillic + spaces + hyphens for Russian word
-      w: p.w.replace(/[^\u0400-\u04FFёЁ\s-]/g,'').replace(/\s{2,}/g,' ').trim(),
-      t: p.t.trim()
-    })).filter(p => p.w.length >= 3 && p.t.length >= 2);
-    
-    if(!cleanPairs.length){ st.textContent='Aucune paire trouvée.'; return; }
-    st.textContent=cleanPairs.length+' paires trouvées — sélectionne :';
-    cleanPairs.forEach((p,i)=>{
+
+    if(!pairs.length){ st.textContent='Aucune paire trouvée.'; return; }
+    st.textContent=pairs.length+' paires trouvées — sélectionne :';
+    pairs.forEach((p,i)=>{
       const el=document.createElement('div');
       el.className='ocr-w sel'; el.textContent=p.w+' → '+p.t;
       ocrSel.add(i);
       el.onclick=()=>{ ocrSel.has(i)?(ocrSel.delete(i),el.classList.remove('sel')):(ocrSel.add(i),el.classList.add('sel')); };
       res.appendChild(el);
     });
-    box.dataset.p=JSON.stringify(cleanPairs);
+    box.dataset.p=JSON.stringify(pairs);
   } catch(err){ st.textContent='Erreur OCR'; console.error(err); }
 }
+
+// Add words as-is from OCR
 function confirmOCR() {
   const box=document.getElementById('ocr-box');
   try {
@@ -897,7 +885,28 @@ function confirmOCR() {
         n++;
       }
     });
-    save(); renderPool(); box.classList.remove('show'); toast(n+' mots ajoutés');
+    save(); renderPool(); box.classList.remove('show'); toast(n+' mots ajoutés (brut)');
+  } catch(e){ toast('Erreur'); }
+}
+
+// Add words with auto-correction (strip non-cyrillic from Russian, trim junk)
+function confirmOCRClean() {
+  const box=document.getElementById('ocr-box');
+  try {
+    const pairs=JSON.parse(box.dataset.p||'[]');
+    let n=0;
+    ocrSel.forEach(i=>{
+      const p=pairs[i];
+      if(!p) return;
+      // Clean: keep only cyrillic + space + hyphen in Russian word
+      const w = p.w.replace(/[^\u0400-\u04FFёЁ\s-]/g,'').replace(/\s{2,}/g,' ').trim();
+      const t = p.t.trim();
+      if(w.length < 2) return;
+      if(S.words.find(x=>x.w===w)) return;
+      S.words.push({w, t, ex:'', ts:Date.now()});
+      n++;
+    });
+    save(); renderPool(); box.classList.remove('show'); toast(n+' mots ajoutés (corrigés)');
   } catch(e){ toast('Erreur'); }
 }
 function addWords() {
