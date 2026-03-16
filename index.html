@@ -825,23 +825,9 @@ async function importOCR(e) {
     const worker=await Tesseract.createWorker('rus+fra');
     const ret=await worker.recognize(f);
     await worker.terminate();
-    let lines=ret.data.text.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
+    const lines=ret.data.text.split('\n').map(l=>l.trim()).filter(l=>l.length>2);
     const pairs=[];
     
-    // Pre-clean lines: remove trailing OCR garbage (0, O, C, o from bookmark icons)
-    lines = lines.map(l => l
-      .replace(/\s+[0OoCС]\s*$/g, '')  // trailing " 0", " O", " C", " o", " С"(cyrillic)
-      .replace(/\s+[|lI!]\s*$/g, '')   // trailing pipes/bars from UI
-      .replace(/\s+й\s*$/g, '')         // trailing "й" (OCR misread of icon)
-      .trim()
-    ).filter(l => l.length > 2);
-    
-    // Filter out Google Translate UI lines
-    const uiNoise = /^(home|saved|phrasebook|transcripts?|cancel|ok|done|edit|filter|search|back|<|>|☆|★)$/i;
-    const isUiLine = (s) => uiNoise.test(s) || /phrasebook|transcript/i.test(s);
-    lines = lines.filter(l => !isUiLine(l));
-    
-    // Detect if a line is Cyrillic or Latin
     const isCyrillic = (s) => /[а-яА-ЯёЁ]/.test(s);
     const isLatin = (s) => /[a-zA-ZàâäéèêëïîôùûüÿçœæÀÂÄ]/.test(s) && !isCyrillic(s);
     
@@ -879,15 +865,12 @@ async function importOCR(e) {
       });
     }
     
-    // Filter out garbage: word must be 3+ real chars, translation 2+ chars, no single letters
-    const cleanPairs = pairs.filter(p => {
-      const w = p.w.trim(), t = p.t.trim();
-      if(w.length < 3 || t.length < 2) return false;
-      // Skip if it's just 1-2 random letters (OCR noise from icons etc)
-      if(/^[a-zA-ZА-Яа-яёЁ]{1,2}$/.test(w)) return false;
-      if(/^[a-zA-ZА-Яа-яёЁ]{1,2}$/.test(t)) return false;
-      return true;
-    });
+    // Filter and clean pairs
+    const cleanPairs = pairs.map(p => ({
+      // Strip trailing isolated latin char (OCR bookmark icon noise: "смородина 0" → "смородина")
+      w: p.w.replace(/\s+[0OoCСсIlй|!]\s*$/g, '').trim(),
+      t: p.t.replace(/\s+[0OoCСсIlй|!]\s*$/g, '').trim()
+    })).filter(p => p.w.length >= 3 && p.t.length >= 2);
     
     if(!cleanPairs.length){ st.textContent='Aucune paire trouvée. Essaie un screenshot plus net.'; return; }
     st.textContent=cleanPairs.length+' paires trouvées — sélectionne :';
