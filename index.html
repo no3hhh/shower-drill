@@ -825,8 +825,21 @@ async function importOCR(e) {
     const worker=await Tesseract.createWorker('rus+fra');
     const ret=await worker.recognize(f);
     await worker.terminate();
-    const lines=ret.data.text.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
+    let lines=ret.data.text.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
     const pairs=[];
+    
+    // Pre-clean lines: remove trailing OCR garbage (0, O, C, o from bookmark icons)
+    lines = lines.map(l => l
+      .replace(/\s+[0OoCС]\s*$/g, '')  // trailing " 0", " O", " C", " o", " С"(cyrillic)
+      .replace(/\s+[|lI!]\s*$/g, '')   // trailing pipes/bars from UI
+      .replace(/\s+й\s*$/g, '')         // trailing "й" (OCR misread of icon)
+      .trim()
+    ).filter(l => l.length > 2);
+    
+    // Filter out Google Translate UI lines
+    const uiNoise = /^(home|saved|phrasebook|transcripts?|cancel|ok|done|edit|filter|search|back|<|>|☆|★)$/i;
+    const isUiLine = (s) => uiNoise.test(s) || /phrasebook|transcript/i.test(s);
+    lines = lines.filter(l => !isUiLine(l));
     
     // Detect if a line is Cyrillic or Latin
     const isCyrillic = (s) => /[а-яА-ЯёЁ]/.test(s);
@@ -838,19 +851,17 @@ async function importOCR(e) {
     for(let i = 0; i < lines.length - 1; i++) {
       const a = lines[i], b = lines[i+1];
       
-      // Skip short/noise lines
-      if(a.length < 3 || b.length < 3) continue;
-      // Skip UI text and garbage
-      if(/^(home|saved|phrasebook|transcript|cancel|ok|done|edit|filter|search|back|\w{1,2})$/i.test(a)) continue;
-      if(/^(home|saved|phrasebook|transcript|cancel|ok|done|edit|filter|search|back|\w{1,2})$/i.test(b)) continue;
+      // Skip short lines
+      if(a.length < 3 || b.length < 2) continue;
       
       if(isCyrillic(a) && isLatin(b)) {
-        // Russian then French
-        pairs.push({w: a.replace(/[^\u0400-\u04FFёЁ\s-]/g,'').trim(), t: b.trim()});
-        i++; // skip next line
+        // Russian then French — keep only cyrillic, spaces, hyphens, then trim trailing junk
+        const w = a.replace(/[^\u0400-\u04FFёЁ\s-]/g,'').replace(/\s+/g,' ').trim();
+        pairs.push({w, t: b.trim()});
+        i++;
       } else if(isLatin(a) && isCyrillic(b)) {
-        // French then Russian
-        pairs.push({w: b.replace(/[^\u0400-\u04FFёЁ\s-]/g,'').trim(), t: a.trim()});
+        const w = b.replace(/[^\u0400-\u04FFёЁ\s-]/g,'').replace(/\s+/g,' ').trim();
+        pairs.push({w, t: a.trim()});
         i++;
       }
     }
