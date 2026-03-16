@@ -583,7 +583,8 @@ html,body {
       <div class="ocr-box" id="ocr-box">
         <div class="ocr-st" id="ocr-st">...</div>
         <div class="ocr-res" id="ocr-res"></div>
-        <button class="btn btn-p" style="margin-top:10px;padding:10px;font-size:11px;width:100%" onclick="confirmOCR()">Ajouter sélectionnés</button>
+        <button class="btn btn-p" style="margin-top:10px;padding:10px;font-size:11px;width:100%" onclick="confirmOCR()">Ajouter tel quel</button>
+        <button class="btn btn-s" style="margin-top:6px;padding:10px;font-size:11px;width:100%;border-color:var(--accent30);color:var(--accent)" onclick="ocrToTextarea()">✏️ Corriger manuellement</button>
       </div>
     </div>
     <div class="imp-s">
@@ -895,6 +896,21 @@ function confirmOCR() {
       }
     });
     save(); renderPool(); box.classList.remove('show'); toast(n+' mots ajoutés');
+  } catch(e){ toast('Erreur'); }
+}
+function ocrToTextarea() {
+  const box=document.getElementById('ocr-box');
+  try {
+    const pairs=JSON.parse(box.dataset.p||'[]');
+    const selected=[];
+    ocrSel.forEach(i=>{ if(pairs[i]) selected.push(pairs[i]); });
+    const text=selected.map(p=>p.w+' — '+p.t).join('\n');
+    document.getElementById('m-in').value=text;
+    box.classList.remove('show');
+    toast('Mots copiés dans le champ — corrige puis ajoute');
+    // Scroll to textarea
+    document.getElementById('m-in').scrollIntoView({behavior:'smooth'});
+    document.getElementById('m-in').focus();
   } catch(e){ toast('Erreur'); }
 }
 function addWords() {
