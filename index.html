@@ -5,9 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#08080d">
+<meta name="apple-mobile-web-app-title" content="ShowerDrill">
+<meta name="theme-color" content="#0a1628">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚿</text></svg>">
 <title>ShowerDrill</title>
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="./manifest.json">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Unbounded:wght@300;400;700;900&display=swap');
 
@@ -794,27 +796,61 @@ async function importOCR(e) {
     const worker=await Tesseract.createWorker('rus+fra');
     const ret=await worker.recognize(f);
     await worker.terminate();
-    const lines=ret.data.text.split('\n').filter(l=>l.trim());
+    const lines=ret.data.text.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
     const pairs=[];
-    lines.forEach(line=>{
-      const cy=line.match(/([а-яА-ЯёЁ\s-]+)/g);
-      const la=line.match(/([a-zA-ZàâäéèêëïîôùûüÿçœæÀÂÄÉÈÊËÏÎÔÙÛÜŸÇŒÆ\s'-]+)/g);
-      if(cy&&la){
-        const ru=cy.map(s=>s.trim()).filter(s=>s.length>1);
-        const fr=la.map(s=>s.trim()).filter(s=>s.length>1);
-        ru.forEach((r,i)=>{ if(fr[i]) pairs.push({w:r,t:fr[i]}); });
+    
+    // Detect if a line is Cyrillic or Latin
+    const isCyrillic = (s) => /[а-яА-ЯёЁ]/.test(s);
+    const isLatin = (s) => /[a-zA-ZàâäéèêëïîôùûüÿçœæÀÂÄ]/.test(s) && !isCyrillic(s);
+    
+    // Strategy 1: Google Translate saved format — alternating lines
+    // Line 1: Russian word (bold), Line 2: French translation
+    // Or reversed: Line 1: French, Line 2: Russian
+    for(let i = 0; i < lines.length - 1; i++) {
+      const a = lines[i], b = lines[i+1];
+      
+      // Skip short/noise lines
+      if(a.length < 2 || b.length < 2) continue;
+      // Skip UI text
+      if(/home|saved|phrasebook|transcript/i.test(a)) continue;
+      
+      if(isCyrillic(a) && isLatin(b)) {
+        // Russian then French
+        pairs.push({w: a.replace(/[^\u0400-\u04FFёЁ\s-]/g,'').trim(), t: b.trim()});
+        i++; // skip next line
+      } else if(isLatin(a) && isCyrillic(b)) {
+        // French then Russian
+        pairs.push({w: b.replace(/[^\u0400-\u04FFёЁ\s-]/g,'').trim(), t: a.trim()});
+        i++;
       }
-    });
-    if(!pairs.length){ st.textContent='Aucune paire trouvée.'; return; }
-    st.textContent=pairs.length+' paires — sélectionne :';
-    pairs.forEach((p,i)=>{
+    }
+    
+    // Strategy 2: Same-line pairs (fallback)
+    if(pairs.length === 0) {
+      lines.forEach(line=>{
+        const cy=line.match(/([а-яА-ЯёЁ\s-]+)/g);
+        const la=line.match(/([a-zA-ZàâäéèêëïîôùûüÿçœæÀÂÄÉÈÊËÏÎÔÙÛÜŸÇŒÆ\s'-]+)/g);
+        if(cy&&la){
+          const ru=cy.map(s=>s.trim()).filter(s=>s.length>1);
+          const fr=la.map(s=>s.trim()).filter(s=>s.length>1);
+          ru.forEach((r,i)=>{ if(fr[i]) pairs.push({w:r,t:fr[i]}); });
+        }
+      });
+    }
+    
+    // Filter out empty/garbage
+    const cleanPairs = pairs.filter(p => p.w.length > 1 && p.t.length > 1);
+    
+    if(!cleanPairs.length){ st.textContent='Aucune paire trouvée. Essaie un screenshot plus net.'; return; }
+    st.textContent=cleanPairs.length+' paires trouvées — sélectionne :';
+    cleanPairs.forEach((p,i)=>{
       const el=document.createElement('div');
       el.className='ocr-w sel'; el.textContent=p.w+' → '+p.t;
       ocrSel.add(i);
       el.onclick=()=>{ ocrSel.has(i)?(ocrSel.delete(i),el.classList.remove('sel')):(ocrSel.add(i),el.classList.add('sel')); };
       res.appendChild(el);
     });
-    box.dataset.p=JSON.stringify(pairs);
+    box.dataset.p=JSON.stringify(cleanPairs);
   } catch(err){ st.textContent='Erreur OCR'; console.error(err); }
 }
 function confirmOCR() {
