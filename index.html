@@ -891,10 +891,14 @@ function confirmOCR() {
     let n=0;
     ocrSel.forEach(i=>{
       const p=pairs[i];
-      if(p&&!S.words.find(x=>x.w===p.w)){
-        S.words.push({w:p.w.trim(),t:p.t.trim(),ex:'',ts:Date.now()});
-        n++;
-      }
+      if(!p) return;
+      // Final clean: strip trailing "space + single char" pattern (OCR bookmark junk)
+      const w = p.w.replace(/\s+.\s*$/g,'').trim();
+      const t = p.t.replace(/\s+.\s*$/g,'').trim();
+      if(w.length < 2 || !w) return;
+      if(S.words.find(x=>x.w===w)) return;
+      S.words.push({w, t, ex:'', ts:Date.now()});
+      n++;
     });
     save(); renderPool(); box.classList.remove('show'); toast(n+' mots ajoutés');
   } catch(e){ toast('Erreur'); }
