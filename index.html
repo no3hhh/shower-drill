@@ -839,9 +839,10 @@ async function importOCR(e) {
       const a = lines[i], b = lines[i+1];
       
       // Skip short/noise lines
-      if(a.length < 2 || b.length < 2) continue;
-      // Skip UI text
-      if(/home|saved|phrasebook|transcript/i.test(a)) continue;
+      if(a.length < 3 || b.length < 3) continue;
+      // Skip UI text and garbage
+      if(/^(home|saved|phrasebook|transcript|cancel|ok|done|edit|filter|search|back|\w{1,2})$/i.test(a)) continue;
+      if(/^(home|saved|phrasebook|transcript|cancel|ok|done|edit|filter|search|back|\w{1,2})$/i.test(b)) continue;
       
       if(isCyrillic(a) && isLatin(b)) {
         // Russian then French
@@ -867,8 +868,15 @@ async function importOCR(e) {
       });
     }
     
-    // Filter out empty/garbage
-    const cleanPairs = pairs.filter(p => p.w.length > 1 && p.t.length > 1);
+    // Filter out garbage: word must be 3+ real chars, translation 2+ chars, no single letters
+    const cleanPairs = pairs.filter(p => {
+      const w = p.w.trim(), t = p.t.trim();
+      if(w.length < 3 || t.length < 2) return false;
+      // Skip if it's just 1-2 random letters (OCR noise from icons etc)
+      if(/^[a-zA-ZА-Яа-яёЁ]{1,2}$/.test(w)) return false;
+      if(/^[a-zA-ZА-Яа-яёЁ]{1,2}$/.test(t)) return false;
+      return true;
+    });
     
     if(!cleanPairs.length){ st.textContent='Aucune paire trouvée. Essaie un screenshot plus net.'; return; }
     st.textContent=cleanPairs.length+' paires trouvées — sélectionne :';
