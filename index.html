@@ -825,34 +825,35 @@ async function importOCR(e) {
     const worker=await Tesseract.createWorker('rus+fra');
     const ret=await worker.recognize(f);
     await worker.terminate();
-    const lines=ret.data.text.split('\n').map(l=>l.trim()).filter(l=>l.length>2);
+    const lines=ret.data.text.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
     const pairs=[];
     
-    const isCyrillic = (s) => /[а-яА-ЯёЁ]/.test(s);
-    const isLatin = (s) => /[a-zA-ZàâäéèêëïîôùûüÿçœæÀÂÄ]/.test(s) && !isCyrillic(s);
+    const hasCyrillic = (s) => /[а-яА-ЯёЁ]/.test(s);
+    const hasLatin = (s) => /[a-zA-ZàâäéèêëïîôùûüÿçœæÀÂÄ]/.test(s);
+    const isMostlyCyrillic = (s) => {
+      const cy = (s.match(/[а-яА-ЯёЁ]/g)||[]).length;
+      return cy > s.replace(/\s/g,'').length * 0.5;
+    };
+    const isMostlyLatin = (s) => {
+      const la = (s.match(/[a-zA-ZàâäéèêëïîôùûüÿçœæÀÂÄ]/g)||[]).length;
+      return la > s.replace(/\s/g,'').length * 0.5;
+    };
     
-    // Strategy 1: Google Translate saved format — alternating lines
-    // Line 1: Russian word (bold), Line 2: French translation
-    // Or reversed: Line 1: French, Line 2: Russian
+    // Google Translate format: alternating lines (Russian bold, French below)
     for(let i = 0; i < lines.length - 1; i++) {
       const a = lines[i], b = lines[i+1];
+      if(a.length < 2 || b.length < 2) continue;
       
-      // Skip short lines
-      if(a.length < 3 || b.length < 2) continue;
-      
-      if(isCyrillic(a) && isLatin(b)) {
-        // Russian then French — keep only cyrillic, spaces, hyphens, then trim trailing junk
-        const w = a.replace(/[^\u0400-\u04FFёЁ\s-]/g,'').replace(/\s+/g,' ').trim();
-        pairs.push({w, t: b.trim()});
+      if(isMostlyCyrillic(a) && isMostlyLatin(b)) {
+        pairs.push({w: a, t: b});
         i++;
-      } else if(isLatin(a) && isCyrillic(b)) {
-        const w = b.replace(/[^\u0400-\u04FFёЁ\s-]/g,'').replace(/\s+/g,' ').trim();
-        pairs.push({w, t: a.trim()});
+      } else if(isMostlyLatin(a) && isMostlyCyrillic(b)) {
+        pairs.push({w: b, t: a});
         i++;
       }
     }
     
-    // Strategy 2: Same-line pairs (fallback)
+    // Fallback: same-line pairs
     if(pairs.length === 0) {
       lines.forEach(line=>{
         const cy=line.match(/([а-яА-ЯёЁ\s-]+)/g);
@@ -865,14 +866,14 @@ async function importOCR(e) {
       });
     }
     
-    // Filter and clean pairs
+    // === POST-CLEAN: strip OCR junk from each pair ===
     const cleanPairs = pairs.map(p => ({
-      // Strip trailing isolated latin char (OCR bookmark icon noise: "смородина 0" → "смородина")
-      w: p.w.replace(/\s+[0OoCСсIlй|!]\s*$/g, '').trim(),
-      t: p.t.replace(/\s+[0OoCСсIlй|!]\s*$/g, '').trim()
+      // Keep only cyrillic + spaces + hyphens for Russian word
+      w: p.w.replace(/[^\u0400-\u04FFёЁ\s-]/g,'').replace(/\s{2,}/g,' ').trim(),
+      t: p.t.trim()
     })).filter(p => p.w.length >= 3 && p.t.length >= 2);
     
-    if(!cleanPairs.length){ st.textContent='Aucune paire trouvée. Essaie un screenshot plus net.'; return; }
+    if(!cleanPairs.length){ st.textContent='Aucune paire trouvée.'; return; }
     st.textContent=cleanPairs.length+' paires trouvées — sélectionne :';
     cleanPairs.forEach((p,i)=>{
       const el=document.createElement('div');
@@ -891,14 +892,10 @@ function confirmOCR() {
     let n=0;
     ocrSel.forEach(i=>{
       const p=pairs[i];
-      if(!p) return;
-      // Final clean: strip trailing "space + single char" pattern (OCR bookmark junk)
-      const w = p.w.replace(/\s+.\s*$/g,'').trim();
-      const t = p.t.replace(/\s+.\s*$/g,'').trim();
-      if(w.length < 2 || !w) return;
-      if(S.words.find(x=>x.w===w)) return;
-      S.words.push({w, t, ex:'', ts:Date.now()});
-      n++;
+      if(p&&!S.words.find(x=>x.w===p.w)){
+        S.words.push({w:p.w,t:p.t,ex:'',ts:Date.now()});
+        n++;
+      }
     });
     save(); renderPool(); box.classList.remove('show'); toast(n+' mots ajoutés');
   } catch(e){ toast('Erreur'); }
