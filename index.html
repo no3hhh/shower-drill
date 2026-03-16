@@ -320,15 +320,18 @@ html,body {
 /* ====== DRILL ====== */
 #drill { justify-content:space-between; background:var(--bg); overflow:hidden; }
 .d-top {
-  padding:14px 20px; display:flex; justify-content:space-between; align-items:center;
+  padding:10px 16px; padding-top:max(10px, env(safe-area-inset-top));
+  display:flex; justify-content:space-between; align-items:center; gap:8px;
+  flex-shrink:0;
 }
 .d-prog { font-size:11px; color:var(--dim); }
-.d-bar { height:3px; background:#fff1; border-radius:2px; margin-top:3px; overflow:hidden; width:100px; }
+.d-bar { height:3px; background:#fff1; border-radius:2px; margin-top:3px; overflow:hidden; width:80px; }
 .d-fill { height:100%; background:var(--accent); border-radius:2px; transition:width 0.3s; }
-.d-stop {
-  padding:7px 14px; background:var(--red15); color:var(--red);
+.d-quit {
+  padding:8px 14px; background:var(--red15); color:var(--red);
   border:1px solid var(--red15); border-radius:8px;
-  font-family:var(--fm); font-size:10px; cursor:pointer; text-transform:uppercase;
+  font-family:var(--fm); font-size:11px; cursor:pointer; 
+  text-transform:uppercase; white-space:nowrap;
 }
 .d-mic-tog {
   padding:7px 12px; background:var(--accent15); color:var(--accent);
@@ -343,22 +346,26 @@ html,body {
 .d-center {
   flex:1; display:flex; flex-direction:column;
   justify-content:center; align-items:center;
-  padding:16px; gap:10px;
+  padding:8px 16px; gap:6px;
+  overflow-y:auto; overflow-x:hidden;
+  min-height:0;
 }
 .d-imgs {
   display:grid; grid-template-columns:1fr 1fr;
-  gap:8px; width:min(92vw, 400px); aspect-ratio:1;
+  gap:6px; width:min(70vw, 300px); 
+  flex-shrink:0;
 }
 .d-img-cell {
-  border-radius:14px; overflow:hidden;
+  border-radius:12px; overflow:hidden;
   background:linear-gradient(135deg, var(--bg2), #0d1f35); 
   border:1px solid #ffffff12;
   position:relative;
   display:flex; align-items:center; justify-content:center;
+  aspect-ratio:1;
   box-shadow:inset 0 1px 0 #ffffff08;
 }
 .d-img-cell img { width:100%; height:100%; object-fit:cover; display:none; }
-.d-img-cell .ph { font-size:32px; opacity:0.12; }
+.d-img-cell .ph { font-size:24px; opacity:0.12; }
 .d-img-cell .cell-spin {
   position:absolute; inset:0;
   display:flex; align-items:center; justify-content:center;
@@ -369,40 +376,62 @@ html,body {
 @keyframes spin { to{transform:rotate(360deg)} }
 
 .d-word {
-  font-family:var(--fd); font-size:clamp(2.2rem,11vw,4rem);
+  font-family:var(--fd); font-size:clamp(1.6rem,8vw,3rem);
   font-weight:900; text-align:center; line-height:1.2;
+  flex-shrink:0;
 }
 .d-word .accent { color:var(--accent); text-decoration:underline; text-underline-offset:4px; }
-.d-trans { font-size:clamp(1.2rem,5vw,1.8rem); color:var(--text); text-align:center; font-weight:700; }
+.d-trans { font-size:clamp(1rem,4vw,1.5rem); color:var(--text); text-align:center; font-weight:700; flex-shrink:0; }
 .d-wiki-ex {
-  font-size:14px; color:var(--mid); text-align:center; line-height:1.7;
-  padding:12px 16px; background:var(--bg2); border-radius:10px;
+  font-size:12px; color:var(--mid); text-align:center; line-height:1.5;
+  padding:8px 12px; background:var(--bg2); border-radius:8px;
   border-left:3px solid var(--accent30);
-  width:100%; display:none;
+  width:100%; display:none; max-height:80px; overflow-y:auto;
 }
-.d-wiki-ex.vis { display:flex; flex-direction:column; gap:6px; }
-.d-wiki-ex .wiki-ru { color:var(--text); display:block; font-size:14px; line-height:1.6; }
+.d-wiki-ex.vis { display:flex; flex-direction:column; gap:4px; }
+.d-wiki-ex .wiki-ru { color:var(--text); display:block; font-size:12px; line-height:1.5; }
 .d-example {
-  font-size:13px; color:var(--dim); text-align:center; line-height:1.6;
-  padding:14px 18px; background:var(--bg2); border-radius:10px;
+  font-size:12px; color:var(--dim); text-align:center; line-height:1.5;
+  padding:8px 12px; background:var(--bg2); border-radius:8px;
   max-width:100%; display:none;
 }
 .d-example.vis { display:block; }
-.d-dots { display:flex; gap:5px; }
+.d-dots { display:flex; gap:5px; flex-shrink:0; }
 .dot { width:7px; height:7px; border-radius:50%; background:#fff1; transition:background 0.3s; }
 .dot.on { background:var(--accent); box-shadow:0 0 6px var(--accent30); }
 
-.d-bot { padding:14px 20px 36px; display:flex; gap:10px; }
+.d-bot { 
+  padding:10px 16px; 
+  padding-bottom:max(16px, env(safe-area-inset-bottom)); 
+  display:flex; gap:8px; flex-shrink:0; 
+}
 .d-btn {
-  flex:1; padding:20px; border:none; border-radius:var(--r);
-  font-family:var(--fd); font-size:13px; font-weight:700;
-  cursor:pointer; text-transform:uppercase; letter-spacing:1px;
+  flex:1; padding:16px 8px; border:none; border-radius:var(--r);
+  font-family:var(--fd); font-size:12px; font-weight:700;
+  cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;
   transition:transform 0.12s;
 }
 .d-btn:active { transform:scale(0.95); }
-.d-btn-prev { background:var(--bg2); color:var(--mid); border:1px solid #fff1; flex:0.4; }
+.d-btn-prev { background:var(--bg2); color:var(--mid); border:1px solid #fff1; flex:0.35; }
 .d-btn-next { background:var(--accent); color:var(--bg); }
-.d-btn-val { background:var(--green15); color:var(--green); border:1px solid var(--green15); flex:0.6; }
+.d-btn-val { background:var(--green15); color:var(--green); border:1px solid var(--green15); flex:0.55; }
+
+/* ====== iPhone safe areas ====== */
+@supports(padding: max(0px)) {
+  #home { padding-top:max(24px, env(safe-area-inset-top)); padding-bottom:max(24px, env(safe-area-inset-bottom)); }
+  .hdr { padding-top:max(14px, env(safe-area-inset-top)); }
+  #recap { padding-bottom:max(24px, env(safe-area-inset-bottom)); }
+}
+
+/* ====== Small screens (iPhone SE, etc) ====== */
+@media (max-height: 700px) {
+  .d-imgs { width:min(55vw, 220px); }
+  .d-word { font-size:clamp(1.4rem,7vw,2.2rem); }
+  .d-trans { font-size:clamp(0.9rem,3.5vw,1.2rem); }
+  .d-bot { padding:8px 12px; }
+  .d-btn { padding:14px 6px; font-size:11px; }
+  .d-wiki-ex { max-height:50px; }
+}
 
 /* ====== RECAP ====== */
 #recap { padding:24px 20px; }
@@ -574,8 +603,8 @@ html,body {
       <div class="d-prog"><span id="dc">1</span> / <span id="dt">10</span></div>
       <div class="d-bar"><div class="d-fill" id="d-fill"></div></div>
     </div>
-    <button class="d-stop" onclick="endDrill()">&#9632; Stop</button>
     <button class="d-mic-tog" id="d-mic-btn" onclick="toggleMicDrill()">🎙</button>
+    <button class="d-quit" onclick="quitDrill()">✕ Quitter</button>
   </div>
   <div class="d-center" id="d-center">
     <div class="d-imgs" id="d-imgs">
@@ -1544,7 +1573,8 @@ function matchCmd(text) {
     'SUIVANT ▷': ['next','suivant','prochain','continue','passe','pass','avance','suite'],
     '◁ PRÉCÉDENT': ['previous','précédent','précédente','retour','back','arrière','reviens'],
     '✓ CONNU': ['validate','valide','validé','connu','connue','je connais','acquis'],
-    '■ STOP': ['stop','arrête','arrêter','fin','termine','terminé','fini']
+    '■ STOP': ['stop','arrête','arrêter','fin','termine','terminé','fini'],
+    '✕ QUITTER': ['quitter','quit','annule','annuler']
   };
   
   for(const [label, triggers] of Object.entries(cmds)) {
@@ -1554,6 +1584,7 @@ function matchCmd(text) {
       else if(label.includes('PRÉCÉDENT')) dPrev();
       else if(label.includes('CONNU')) dValid();
       else if(label.includes('STOP')) endDrill();
+      else if(label.includes('QUITTER')) quitDrill();
       return label;
     }
   }
@@ -1615,6 +1646,12 @@ function endDrill() {
   const w=D.words[D.idx];
   if(w && !D.results.find(r=>r.w===w.w)) D.results.push({w:w.w,t:w.t,v:false});
   S.sessions++; save(); showRecap();
+}
+
+function quitDrill() {
+  ttsGen++; speechSynthesis.cancel(); D.speaking=false; stopVoice();
+  nav('home');
+  toast('Session annulée');
 }
 
 function showRecap() {
