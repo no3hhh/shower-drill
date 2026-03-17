@@ -609,6 +609,7 @@ html,body {
       <button class="btn btn-s" style="flex:1;padding:12px;font-size:11px" id="fc-btn" onclick="toggleFlashcard()">🃏 Drill</button>
     </div>
     <div style="display:flex;gap:8px;width:100%">
+      <button class="btn btn-s" style="flex:1;padding:12px;font-size:11px" id="dir-btn" onclick="toggleDirection()">🇷🇺→🇫🇷</button>
       <button class="btn btn-s" style="flex:1;padding:12px;font-size:11px" onclick="resetKnown()">Reset connus</button>
     </div>
     <button class="btn btn-s" onclick="nav('import-screen')">📚 Mes mots</button>
@@ -1139,6 +1140,7 @@ function clearAll(){ S.words=[]; S.known=[]; save(); renderPool(); toast('Vidé'
 let D = { words:[], idx:0, reps:0, results:[], t0:null, recog:null, speaking:false };
 let drillMode = 'all'; // 'all' or 'unknown'
 let flashcardMode = false;
+let reverseMode = false; // false = RU→FR, true = FR→RU
 
 function toggleMode() {
   drillMode = drillMode === 'all' ? 'unknown' : 'all';
@@ -1151,6 +1153,15 @@ function toggleFlashcard() {
   document.getElementById('fc-btn').style.background = flashcardMode ? 'var(--purple)' : '';
   document.getElementById('fc-btn').style.color = flashcardMode ? 'var(--bg)' : '';
   document.getElementById('fc-btn').style.borderColor = flashcardMode ? 'var(--purple)' : '';
+}
+
+function toggleDirection() {
+  reverseMode = !reverseMode;
+  const btn = document.getElementById('dir-btn');
+  btn.textContent = reverseMode ? '🇫🇷→🇷🇺' : '🇷🇺→🇫🇷';
+  btn.style.background = reverseMode ? 'var(--orange15)' : '';
+  btn.style.color = reverseMode ? 'var(--orange)' : '';
+  btn.style.borderColor = reverseMode ? 'var(--orange15)' : '';
 }
 
 function adjCardCount(delta) {
@@ -1233,6 +1244,12 @@ function showWord() {
   document.getElementById('dt').textContent=D.words.length;
   document.getElementById('d-fill').style.width=((D.idx+1)/D.words.length*100)+'%';
 
+  // Determine what's shown vs hidden based on direction
+  const front = reverseMode ? (w.t || '') : w.w;
+  const back = reverseMode ? w.w : (w.t || '');
+  const speakText = reverseMode ? (w.t || '') : w.w;
+  const speakLang = reverseMode ? 'fr-FR' : 'ru-RU';
+
   // Toggle normal vs flashcard views
   const normalView = document.getElementById('drill-normal');
   const fcView = document.getElementById('drill-fc');
@@ -1243,26 +1260,29 @@ function showWord() {
     // Reset flashcard state
     const card = document.getElementById('fc-card');
     card.classList.remove('revealed');
-    document.getElementById('fc-word').textContent = w.w;
-    document.getElementById('fc-trans').textContent = w.t || '';
+    document.getElementById('fc-word').textContent = front;
+    document.getElementById('fc-trans').textContent = back;
     // Show example if available
     const exText = w.ex || '';
     document.getElementById('fc-ex').textContent = exText;
     document.getElementById('fc-ex').style.display = exText ? 'block' : 'none';
-    // Fetch wiki data for stress marks
-    fetchWikiDataFC(w.w);
-    if(S.cfg.autoplay) speak(w.w);
+    // Update hint text
+    card.querySelector('.fc-hint').textContent = reverseMode ? 'Touche pour voir le russe' : 'Touche pour révéler';
+    // Fetch wiki data for stress marks (only useful when showing Russian)
+    if(!reverseMode) fetchWikiDataFC(w.w);
+    if(S.cfg.autoplay) speakCustom(speakText, speakLang);
   } else {
-    normalView.style.display = '';
+    normalView.style.display = 'flex';
     fcView.style.display = 'none';
     
     const we=document.getElementById('d-word');
-    we.textContent=w.w; we.classList.remove('wanim'); void we.offsetWidth; we.classList.add('wanim');
-    document.getElementById('d-trans').textContent=w.t||'';
+    we.textContent = reverseMode ? (w.t || '') : w.w;
+    we.classList.remove('wanim'); void we.offsetWidth; we.classList.add('wanim');
+    document.getElementById('d-trans').textContent = reverseMode ? w.w : (w.t || '');
     document.getElementById('d-wiki-ex').classList.remove('vis');
     document.getElementById('d-wiki-ex').innerHTML='';
 
-    // Show example sentence — always if available, not just after reps
+    // Show example sentence — always if available
     const ex=document.getElementById('d-ex');
     if(w.ex){ ex.textContent=w.ex; ex.classList.add('vis'); }
     else ex.classList.remove('vis');
@@ -1275,11 +1295,40 @@ function showWord() {
     }
 
     loadImage(w);
-    if(S.cfg.autoplay) speak(w.w);
+    if(S.cfg.autoplay) speakCustom(speakText, speakLang);
     
     // Fetch wiktionary data (stress + example) async
-    fetchWikiData(w.w);
+    if(!reverseMode) fetchWikiData(w.w);
   }
+}
+
+// TTS with custom language
+function speakCustom(text, lang) {
+  if(lang === 'ru-RU') { speak(text); return; }
+  window.speechSynthesis.cancel();
+  D.speaking=true;
+  const myGen = ttsGen;
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang=lang; u.rate=S.cfg.spd; u.pitch=S.cfg.pitch||1; u.volume=S.cfg.vol||1;
+  const voices=window.speechSynthesis.getVoices();
+  const fv=voices.find(v=>v.lang.startsWith(lang.substring(0,2)));
+  if(fv) u.voice=fv;
+  u.onend=()=>{
+    if(myGen !== ttsGen) { D.speaking=false; return; }
+    D.reps++;
+    if(D.reps<S.cfg.rep){
+      const delayMs = (S.cfg.delay || 2) * 1000;
+      setTimeout(()=>{
+        if(myGen !== ttsGen) return;
+        speakCustom(text, lang);
+      }, delayMs);
+    } else {
+      D.speaking=false;
+      if(D.reps===S.cfg.rep) showWord();
+    }
+  };
+  u.onerror=()=>{ D.speaking=false; };
+  window.speechSynthesis.speak(u);
 }
 
 function fcReveal() {
